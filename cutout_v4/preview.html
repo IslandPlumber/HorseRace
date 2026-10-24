@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StreakChat · Wider race view</title>
+<style>*{box-sizing:border-box}body{background:#171918;color:#eee9db;margin:0;font:16px/1.5 system-ui}main{max-width:1360px;padding:24px;margin:auto}h1{font-size:28px;margin:0}p{color:#b7b6aa}video{display:block;width:100%;background:#000;aspect-ratio:16/9}nav{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}button,a{font:inherit;background:#2b2d29;color:#eee9db;border:1px solid #5a5c51;padding:9px 13px;cursor:pointer;text-decoration:none}small{color:#aaa99f}.label{letter-spacing:.12em;font-size:11px;color:#c6baa2}.links{display:flex;gap:10px;flex-wrap:wrap}.links a{font-size:13px}#status{color:#c6baa2}details{margin:20px 0}summary{cursor:pointer}audio{display:block;margin:12px 0}</style>
+<main><div class="label">STREAKCHAT / LOCAL ART TEST</div>
+<h1>More track. Faster feet.</h1>
+<p>A higher, wider race view inspired by Japan World Cup. The horses’ legs move 2.1× faster. Trump says “You’re fired!” at the hat throw, then Biden answers “C’mon, man!” Mouths move only with their own lines.</p>
+<video id="sample" controls loop playsinline preload="auto" poster="look_test.png"><source src="streakchat_race_view.mp4" type="video/mp4"></video>
+<nav aria-label="Preview controls"><button id="play">Play</button><button id="pause">Pause</button><button id="speed">Half speed</button><button data-time="0">Starting view</button><button id="trump-line">Trump’s line</button><button data-time="1.667">Hat throw</button><button data-time="2.625">Biden’s reply</button></nav>
+<div id="status" role="status">Loading local preview…</div><p id="timing"></p>
+<details><summary>The real Trump sound clip</summary><audio controls preload="metadata" src="audio/youre_fired.wav"></audio><p>“You’re fired!” from The Apprentice soundboard.</p><a href="https://www.101soundboards.com/sounds/15922-youre-fired" target="_blank" rel="noopener">Recording source</a></details>
+<div class="links"><a href="streakchat_race_view.blend" download>Blender scene</a><a href="streakchat_race_view.mp4" download>Download sample</a><a href="../cutout_v3/preview.html">Previous camera and leg speed</a></div>
+<p><small>Rough cutout parody, rendered locally in Blender. Real recorded clips; no generated video or voice. Live StreakChat unchanged.</small></p></main>
+<script>
+const sample=document.getElementById('sample'),status=document.getElementById('status');
+const playAt=t=>{sample.currentTime=t;sample.play().catch(()=>status.textContent='Press the video play button to start sound.');};
+document.getElementById('play').onclick=()=>playAt(0);
+document.getElementById('trump-line').onclick=()=>playAt(.75);
+document.getElementById('pause').onclick=()=>sample.pause();
+document.getElementById('speed').onclick=function(){sample.playbackRate=sample.playbackRate===1?.5:1;this.textContent=sample.playbackRate===1?'Half speed':'Normal speed';};
+document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{sample.pause();sample.currentTime=Number(b.dataset.time);});
+sample.addEventListener('loadedmetadata',()=>status.textContent=`${sample.videoWidth} × ${sample.videoHeight} · ${sample.duration.toFixed(1)} seconds · sound on`);
+sample.addEventListener('error',()=>status.textContent='The local video could not load. Reload this page.');
+fetch('animation_timing.json').then(r=>r.json()).then(d=>document.getElementById('timing').textContent=`${d.frames.length} frames rendered locally in ${d.total_seconds.toFixed(1)} seconds (${d.mean_seconds_per_frame.toFixed(2)} seconds per frame) on this PC.`).catch(()=>{});
+</script></html>

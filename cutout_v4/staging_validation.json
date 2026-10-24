@@ -1,0 +1,49 @@
+{
+  "frames_checked": 96,
+  "riders": [
+    "Trump",
+    "Biden",
+    "McConnell"
+  ],
+  "leg_penetrations": [],
+  "minimum_leg_clearance_m": 0.08405262231826782,
+  "max_cap_anchor_error_m": 0,
+  "max_grip_error_m": 3.371747880871523e-07,
+  "head_screen_bounds": {
+    "Trump": [
+      0.28142091631889343,
+      0.5226789712905884,
+      0.3704493045806885,
+      0.6917526125907898
+    ],
+    "Biden": [
+      0.44280126690864563,
+      0.635691225528717,
+      0.5250919461250305,
+      0.7879651188850403
+    ],
+    "McConnell": [
+      0.618415892124176,
+      0.7277581095695496,
+      0.6856555938720703,
+      0.8759716153144836
+    ]
+  },
+  "mcconnell_unique_local_head_poses": 1,
+  "idle_mouth_movements": [],
+  "jaw_envelope_max_error_m": 3.7085480103504764e-09,
+  "measured_front_leg_positive_cycles": [
+    15,
+    14,
+    14
+  ],
+  "new_gait_hz": 3.6,
+  "previous_gait_hz": 1.7,
+  "camera_type": "PERSP",
+  "camera_lens_mm": 70.0,
+  "camera_down_angle_degrees": 33.787099383037464,
+  "resolution": [
+    1600,
+    900
+  ]
+}

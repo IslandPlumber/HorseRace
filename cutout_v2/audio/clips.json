@@ -1,0 +1,25 @@
+{
+  "source_url": "https://www.youtube.com/watch?v=3qUgMGN04wU",
+  "source_title": "Joe Biden: Come On Man (Small Edit)",
+  "source_channel": "CARBONSLAY",
+  "audio_track": "en-US original (251-7)",
+  "construction": "Recorded excerpts only. No synthetic speech or voice cloning.",
+  "clips": [
+    {
+      "file": "cmon_man.wav",
+      "source_start_seconds": 37.34,
+      "duration_seconds": 1.1,
+      "words": "C'mon, man!",
+      "rate": 44100,
+      "peak": 0.8600000143051147
+    },
+    {
+      "file": "hairy_legs.wav",
+      "source_start_seconds": 38.43,
+      "duration_seconds": 1.87,
+      "words": "I got hairy legs",
+      "rate": 44100,
+      "peak": 0.8600000143051147
+    }
+  ]
+}

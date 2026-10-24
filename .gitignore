@@ -1,0 +1,31 @@
+# Reproducible render intermediates and Python caches.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+renders/
+**/frames/
+**/frames_check/
+**/frames_cache/
+*.log
+
+# Blender autosaves and duplicate backup copies.
+*.blend[0-9]*
+*.blend@
+*.blend_backup
+*.tmp
+
+# Raw downloader metadata and machine-specific inventory.
+**/sources/*_info.json
+**/sources/*.info.json
+hardware.json
+
+# Local settings and credentials.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db
+desktop.ini

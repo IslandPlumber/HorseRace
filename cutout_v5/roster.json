@@ -1,0 +1,19 @@
+{
+  "target_riders": 12,
+  "cast_direction": "Mix politicians and celebrities, as requested. Four riders built; eight proposed.",
+  "field_size_note": "There is no universal horse-racing maximum. Twelve is the prototype target; Breeders' Cup races use 12 or 14, and the Kentucky Derby uses 20.",
+  "riders": [
+    {"slot":1,"name":"Donald Trump","status":"Built","gag":"Red hat throw; actual recorded 'You're fired!'"},
+    {"slot":2,"name":"Joe Biden","status":"Built","gag":"Ducks the hat and answers with the actual 'C'mon, man!' clip."},
+    {"slot":3,"name":"Mitch McConnell","status":"Built","gag":"Blank car-meme stare, completely unmoved by the chaos."},
+    {"slot":4,"name":"Bernie Sanders","status":"Built","gag":"Parka, crossed arms and actual mittens photo; refuses to hold the reins."},
+    {"slot":5,"name":"Snoop Dogg","status":"Proposed","gag":"Immaculate riding outfit, relaxed face, horse doing a ridiculous dressage step.","reference":"https://www.nbcolympics.com/news/our-favorite-snoop-dogg-looks-2024-paris-olympics"},
+    {"slot":6,"name":"Elon Musk","status":"Proposed","gag":"Overexcited bouncing in the saddle while his horse stays dead serious.","reference":"https://apnews.com/article/beca49008e09cdc86c5685643b614a5f"},
+    {"slot":7,"name":"Gordon Ramsay","status":"Proposed","gag":"Leans forward to shout at his own horse instead of the other riders."},
+    {"slot":8,"name":"Nicolas Cage","status":"Proposed","gag":"An enormous wide-eyed reaction face whenever another rider passes."},
+    {"slot":9,"name":"Danny DeVito","status":"Proposed","gag":"A tiny stiff torso low in the saddle, with the same oversized photo-head treatment."},
+    {"slot":10,"name":"Mike Tyson","status":"Proposed","gag":"Gloves up, shadowboxing at the air while the horse calmly carries him."},
+    {"slot":11,"name":"Kamala Harris","status":"Proposed","gag":"A laughing reaction to the hat chaos, timed to a real recording if sourced."},
+    {"slot":12,"name":"Boris Johnson","status":"Proposed","gag":"Dishevelled hair and baffled expression, looking as if he got on the wrong ride."}
+  ]
+}

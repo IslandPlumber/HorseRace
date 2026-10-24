@@ -1,0 +1,20 @@
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+# Keep downloaded captions in their original whitespace format.
+*.vtt text eol=lf -whitespace
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.blend binary
+*.glb binary
+*.mp4 binary
+*.webm binary
+*.wav binary
+*.mp3 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.zip binary

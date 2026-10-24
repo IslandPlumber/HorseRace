@@ -1,0 +1,32 @@
+{
+  "seconds": 4.011,
+  "resolution": [
+    1600.0,
+    900.0
+  ],
+  "verified_frames": 96,
+  "video_bytes": 1469725,
+  "recordings": [
+    {
+      "rider": "Trump",
+      "start_seconds": 0.75,
+      "duration_seconds": 1.3425396825396825,
+      "source_audio_correlation": 0.9999665044730415,
+      "alignment_offset_samples": 1,
+      "wav_sha256": "e0abb64adb1a19c440955a61d07aaa74caee2567a19c830925c1ebc17183ecbb"
+    },
+    {
+      "rider": "Biden",
+      "start_seconds": 2.25,
+      "duration_seconds": 1.1,
+      "source_audio_correlation": 0.9998732960052258,
+      "alignment_offset_samples": 1,
+      "wav_sha256": "8ec0afe01268e00430590026c353ca945e88106bcd29bab6e62e46269d58a216"
+    }
+  ],
+  "audible_start_seconds": 0.7508843537414966,
+  "audible_end_seconds": 3.3488208616780044,
+  "brightness_min": 89.8554298611111,
+  "brightness_median": 90.15313715277779,
+  "audio_peak": 0.8594212532043457
+}

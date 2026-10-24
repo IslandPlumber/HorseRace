@@ -1,0 +1,27 @@
+[
+  {
+    "file": "trump_rider.glb",
+    "bytes": 1624040,
+    "has_armature": true
+  },
+  {
+    "file": "biden_rider.glb",
+    "bytes": 1574704,
+    "has_armature": true
+  },
+  {
+    "file": "chestnut_horse.glb",
+    "bytes": 1331932,
+    "has_armature": true
+  },
+  {
+    "file": "gray_horse.glb",
+    "bytes": 1454612,
+    "has_armature": true
+  },
+  {
+    "file": "red_cap.glb",
+    "bytes": 240272,
+    "has_armature": false
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "frames": [
+    {
+      "frame": 1,
+      "seconds": 5.226
+    },
+    {
+      "frame": 32,
+      "seconds": 1.467
+    },
+    {
+      "frame": 41,
+      "seconds": 1.46
+    },
+    {
+      "frame": 60,
+      "seconds": 1.418
+    },
+    {
+      "frame": 89,
+      "seconds": 1.361
+    }
+  ],
+  "resolution": [
+    1280,
+    800
+  ],
+  "samples": 48,
+  "gpu": "AMD Radeon RX 6400",
+  "backend": "VULKAN",
+  "total_seconds": 10.947,
+  "mean_seconds_per_frame": 2.1864
+}

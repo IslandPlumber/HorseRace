@@ -1,0 +1,19 @@
+{
+  "frames_checked": 96,
+  "cap_attached_frames": [
+    1,
+    32
+  ],
+  "max_cap_anchor_error_m": 1.1920928955078125e-07,
+  "hand_contact_frames": [
+    32,
+    41
+  ],
+  "max_cap_hand_contact_error_m": 5.331201499700045e-07,
+  "minimum_leg_surface_clearance_m": 0.08407574892044067,
+  "leg_penetrations": [],
+  "saddle_back_height_m": [
+    2.2539899349212646,
+    2.2539896965026855
+  ]
+}

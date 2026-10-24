@@ -1,0 +1,17 @@
+{
+  "video": "streakchat_cmon_man.mp4",
+  "decoded_audio_seconds": 4.010680272108844,
+  "recording_insert_seconds": 1.75,
+  "hat_release_seconds": 1.6666666666666667,
+  "audible_start_seconds": 1.7510204081632652,
+  "audible_end_seconds": 2.83718820861678,
+  "matches_source_recording_correlation": 0.9999549783948168,
+  "alignment_offset_samples": 0,
+  "decoded_peak": 0.8590077757835388,
+  "source_url": "https://www.youtube.com/watch?v=3qUgMGN04wU",
+  "source_excerpt_seconds": [
+    37.34,
+    38.44
+  ],
+  "source_wav_sha256": "8ec0afe01268e00430590026c353ca945e88106bcd29bab6e62e46269d58a216"
+}

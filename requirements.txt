@@ -1,0 +1,4 @@
+# External media preparation and validation; Blender supplies bpy itself.
+numpy==2.2.4
+Pillow==13.0.0
+imageio-ffmpeg==0.6.0

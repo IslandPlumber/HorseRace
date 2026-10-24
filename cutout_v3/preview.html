@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StreakChat · Three-rider test</title>
+<style>*{box-sizing:border-box}body{background:#171918;color:#eee9db;margin:0;font:16px/1.5 system-ui}main{max-width:1360px;padding:24px;margin:auto}h1{font-size:28px;margin:0}p{color:#b7b6aa}video{display:block;width:100%;background:#000;aspect-ratio:16/9}nav{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}button,a{font:inherit;background:#2b2d29;color:#eee9db;border:1px solid #5a5c51;padding:9px 13px;cursor:pointer;text-decoration:none}small{color:#aaa99f}.label{letter-spacing:.12em;font-size:11px;color:#c6baa2}.links{display:flex;gap:10px;flex-wrap:wrap}.links a{font-size:13px}#status{color:#c6baa2}</style>
+<main><div class="label">STREAKCHAT / LOCAL ART TEST</div>
+<h1>Wider field. Same bad decisions.</h1>
+<p>Trump, Biden, and McConnell’s blank stare. More room for the field, three reusable horses, and the original “C’mon, man!” recording at the hat throw.</p>
+<video id="sample" controls loop playsinline preload="auto" poster="look_test.png"><source src="streakchat_three_riders.mp4" type="video/mp4"></video>
+<nav aria-label="Preview controls"><button id="play">Play</button><button id="pause">Pause</button><button id="speed">Half speed</button><button data-time="0">Starting view</button><button data-time="1.292">Grab cap</button><button data-time="1.667">Hat throw</button><button data-time="2.458">Biden reaction</button></nav>
+<div id="status" role="status">Loading local preview…</div><p id="timing"></p>
+<div class="links"><a href="streakchat_three_riders.blend" download>Blender scene</a><a href="streakchat_three_riders.mp4" download>Download sample</a><a href="https://knowyourmeme.com/memes/mitch-mcconnell-blankly-staring-in-car" target="_blank" rel="noopener">McConnell meme reference</a><a href="../cutout_v2/preview.html">Previous two-horse test</a></div>
+<p><small>Rough cutout parody, rendered locally in Blender. No AI-generated video. Live StreakChat unchanged.</small></p></main>
+<script>
+const sample=document.getElementById('sample'),status=document.getElementById('status');
+document.getElementById('play').onclick=()=>{sample.currentTime=0;sample.play().catch(()=>status.textContent='Press the video play button to start sound.');};
+document.getElementById('pause').onclick=()=>sample.pause();
+document.getElementById('speed').onclick=function(){sample.playbackRate=sample.playbackRate===1?.5:1;this.textContent=sample.playbackRate===1?'Half speed':'Normal speed';};
+document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{sample.pause();sample.currentTime=Number(b.dataset.time);});
+sample.addEventListener('loadedmetadata',()=>status.textContent=`${sample.videoWidth} × ${sample.videoHeight} · ${sample.duration.toFixed(1)} seconds · sound on`);
+sample.addEventListener('error',()=>status.textContent='The local video could not load. Reload this page.');
+fetch('animation_timing.json').then(r=>r.json()).then(d=>document.getElementById('timing').textContent=`${d.frames.length} frames rendered locally in ${d.total_seconds.toFixed(1)} seconds (${d.mean_seconds_per_frame.toFixed(2)} seconds per frame) on this PC.`).catch(()=>{});
+</script></html>
