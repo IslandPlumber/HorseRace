@@ -159,6 +159,7 @@ test("HTTP supports two players, consistent room state, CORS and auth boundaries
       })
     ).data;
   assert.equal((await request("/api/me")).status, 401);
+  assert.equal((await request("/api/history")).status, 401);
   assert.equal(
     (
       await request("/api/me", a.token, null, {
@@ -193,6 +194,14 @@ test("HTTP supports two players, consistent room state, CORS and auth boundaries
   assert.deepEqual(ra.room.race.definition, rb.room.race.definition);
   assert.equal(ra.room.race.bet, null);
   assert.equal(rb.room.race.bet.stake, 100);
+  const ah = (await request("/api/history", a.token)).data.history;
+  const bh = (await request("/api/history", b.token)).data.history;
+  assert.equal(ah.length, 1);
+  assert.equal(ah[0].bet, null, "another player's bet is private");
+  assert.equal(bh[0].bet.stake, 100);
+  assert.equal(bh[0].winner, null, "history does not disclose an unfinished result");
+  const outside = user(g, "Outside");
+  assert.deepEqual((await request("/api/history", outside.token)).data.history, []);
   assert.equal(
     (await request("/api/money", a.token, { coins: 999999 })).status,
     404,
@@ -246,4 +255,39 @@ test("a full room settles a guaranteed winning bet and every losing bet correctl
     assert.equal(g.profile(p.id).points, e.points);
   }
   assert.equal(g.all("SELECT * FROM bets WHERE payout>0").length, 1);
+});
+
+test("saved slips separate winning bets, losing bets and finish prizes across rooms and restarts", (t) => {
+  const { game: g, db, advance, clock } = fixture(t);
+  const a = user(g, "Island");
+  const code = g.create(a.user.id);
+  g.start(a.user.id, code);
+  g.bet(a.user.id, code, "trump", 50);
+  const pending = g.history(a.user.id)[0];
+  assert.equal(pending.bet.status, "pending");
+  assert.equal(pending.bet.payout, null);
+  assert.equal(pending.winner, null);
+  assert.equal(pending.netCoins, -50);
+  advance(11001);
+  g.settle(g.latest(code), { outcome: ["trump", "biden", "mcconnell", "bernie", "elon", "gordon", "snoop"] });
+  assert.equal(g.profile(a.user.id).coins, 1200);
+  assert.equal(g.profile(a.user.id).points, 3);
+  g.start(a.user.id, code);
+  g.bet(a.user.id, code, "elon", 50);
+  advance(11001);
+  g.settle(g.latest(code), { outcome: ["trump", "elon", "snoop", "gordon", "biden", "mcconnell", "bernie"] });
+  assert.equal(g.profile(a.user.id).coins, 1290);
+  assert.equal(g.profile(a.user.id).points, 12);
+  const history = g.history(a.user.id);
+  assert.deepEqual(history.map((r) => ({ number: r.number, ownHorse: r.ownHorse, place: r.place, prize: r.prize, points: r.points, bet: r.bet, netCoins: r.netCoins })), [
+    { number: 2, ownHorse: "elon", place: 2, prize: 140, points: 9, bet: {horse:"elon",stake:50,payout:0,net:-50,status:"lost"},netCoins:90 },
+    { number: 1, ownHorse: "elon", place: 5, prize: 50, points: 3, bet: {horse:"trump",stake:50,payout:200,net:150,status:"won"},netCoins:200 },
+  ]);
+  g.upgrade(a.user.id, "speed");
+  g.horse(a.user.id, "gordon");
+  g.leave(a.user.id);
+  g.create(a.user.id);
+  assert.deepEqual(g.history(a.user.id), history, "later upgrades, horse changes and rooms cannot rewrite old slips");
+  const restored = new Game(db, { clock });
+  try { assert.deepEqual(restored.history(a.user.id), history); } finally { restored.close(); }
 });

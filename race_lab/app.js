@@ -496,6 +496,7 @@ window.raceLab = {
   get ready() { return Boolean(race && !loading); },
   get actorCount() { return visibleActors.length; },
   get assetCount() { return assetPromises.size; },
+  get textureDiagnostics(){return visibleActors.map(actor=>{const textures=new Map();actor.model.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.map)textures.set(m.map.uuid,{name:m.name,width:m.map.image?.width??0,height:m.map.image?.height??0});});return {id:actor.id,textures:[...textures.values()]};});},
   get viewDiagnostics(){return visibleActors.map(actor=>{let head;actor.model.traverse(o=>{if(/head[ _]hinge/.test(o.name))head=o;});actor.group.updateMatrixWorld(true);const v=(head??actor.puppet??actor.group).getWorldPosition(new THREE.Vector3());const projected=v.clone().project(camera);return {id:actor.id,headHeight:v.y,screen:projected.toArray(),puppet:actor.puppet?.quaternion.toArray()};});},
   get cameraMode(){return cameraMode;},
   get shot(){return lastShot;},

@@ -530,6 +530,46 @@ export class Game {
       rules: RULES,
     };
   }
+  history(id) {
+    // Existing race snapshots and ledger entries are the durable source of truth.
+    // Include the current round even before an optional bet has been placed.
+    return this.all(
+      `SELECT r.id,r.code,r.number,r.phase,r.starts,r.ends,r.entrants,r.results,
+        b.horse AS bet_horse,b.stake,b.payout,
+        (SELECT COALESCE(SUM(l.delta),0) FROM ledger l WHERE l.user_id=? AND l.race_id=r.id) AS net_coins
+       FROM races r LEFT JOIN bets b ON b.race_id=r.id AND b.user_id=?
+       WHERE r.id IN (SELECT race_id FROM ledger WHERE user_id=? AND race_id IS NOT NULL)
+          OR r.id=(SELECT id FROM races WHERE code=(SELECT code FROM members WHERE user_id=?) ORDER BY closes DESC LIMIT 1)
+       ORDER BY r.closes DESC,r.rowid DESC LIMIT 50`,
+      id, id, id, id,
+    ).flatMap((r) => {
+      const entrant = JSON.parse(r.entrants).find((e) => e.userId === id);
+      if (!entrant && !r.bet_horse) return [];
+      const results = r.results ? JSON.parse(r.results) : [];
+      const finish = results.find((e) => e.userId === id);
+      return [{
+        id: r.id,
+        roomCode: r.code,
+        number: r.number,
+        phase: r.phase,
+        starts: r.starts,
+        ends: r.ends,
+        ownHorse: entrant?.horse ?? null,
+        place: finish?.place ?? null,
+        prize: finish?.prize ?? 0,
+        points: finish?.points ?? 0,
+        winner: results[0]?.horse ?? null,
+        bet: r.bet_horse ? {
+          horse: r.bet_horse,
+          stake: r.stake,
+          payout: r.payout,
+          net: r.payout === null ? null : r.payout - r.stake,
+          status: r.payout === null ? "pending" : r.payout > 0 ? "won" : "lost",
+        } : null,
+        netCoins: r.net_coins,
+      }];
+    });
+  }
   ledger(id) {
     return this.all(
       "SELECT delta,reason,race_id AS raceId,created FROM ledger WHERE user_id=? ORDER BY created DESC,rowid DESC LIMIT 30",

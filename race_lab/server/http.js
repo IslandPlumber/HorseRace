@@ -125,6 +125,9 @@ export function createServer(
           case "GET /api/ledger":
             result = { entries: game.ledger(id) };
             break;
+          case "GET /api/history":
+            result = { history: game.history(id) };
+            break;
           case "GET /api/rooms":
             result = { rooms: game.rooms() };
             break;
@@ -189,7 +192,7 @@ export function createServer(
           ? "no-cache"
           : "public, max-age=3600",
         "Content-Security-Policy":
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
       });
       res.end(req.method === "HEAD" ? undefined : await readFile(file));
     } catch (error) {

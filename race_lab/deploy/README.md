@@ -43,6 +43,29 @@ The Node server serves both the compiled game and API on one origin. GitHub Page
 continues as a practice preview; its static hosting cannot run this backend. No
 CORS configuration is needed for the droplet's own game site.
 
+### Existing HTTPS site, without DNS changes
+
+The client also supports a subpath such as `https://streakchat.app/horserace/`.
+Resolve API requests relative to that directory, and proxy only `/horserace/`,
+stripping the prefix before forwarding to Node. `nginx-subpath.conf.example`
+shows locations to include inside the existing HTTPS virtual host after
+inspection. Preserve other locations, especially Laravel's root `/api/` routes,
+and keep the existing certificate. Redirect the path without its trailing slash.
+
+The game serves a content security policy allowing same-origin resources and
+locally created `blob:` image fetches. GLTFLoader decodes embedded photographs
+and horse textures through those fetches; blocking them produces white models.
+`npm run test:slips` checks actual texture decoding and the saved-slip interface
+in a real browser, including phone widths. `BROWSER_CHANNEL` selects an installed
+Playwright browser channel (defaults to Chrome).
+
+Saved slips are derived from existing race snapshots, bets and coin ledger rows;
+no database migration is needed. The authenticated `/api/history` endpoint
+returns only that player's latest 50 rounds, including rounds without a bet.
+Bet returns include the stake; bet profit is return minus stake; round coin
+change is minus stake plus bet return plus the player's finish prize. Upgrades
+are separate purchases, and career points/wins describe the player's own horse.
+
 ## Save data and recovery
 
 The SQLite database stores scrypt password hashes, hashed 30-day login sessions,
