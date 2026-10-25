@@ -79,6 +79,12 @@ browsers, per-horse sound for fields of one/four/seven, and the park rendering.
 The richer scenery uses instanced geometry and generated canvas textures, with
 no new external image dependency. Currency and payout rules are unchanged.
 
+`RACE_LAB_URL=https://your-host/horserace/ npm run test:resources` checks actual
+WebGL buffer allocation across repeated practice-track rebuilds without signing
+in or changing server progress. By default it targets a local server on port
+8770. Instanced scenery must call `InstancedMesh.dispose()` as well as disposing
+geometry/materials, otherwise per-instance GPU buffers accumulate between races.
+
 ## Save data and recovery
 
 The SQLite database stores scrypt password hashes, hashed 30-day login sessions,

@@ -18,7 +18,8 @@
     "test:multiplayer": "node verify-multiplayer.mjs",
     "test:slips": "node verify-slips.mjs",
     "test:live-sound": "node verify-live-sound.mjs",
-    "test:refinements": "node verify-refinements.mjs"
+    "test:refinements": "node verify-refinements.mjs",
+    "test:resources": "node verify-resources.mjs"
   },
   "dependencies": {
     "three": "0.180.0"
