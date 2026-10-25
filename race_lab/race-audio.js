@@ -1,4 +1,4 @@
-import {buildAudioPlan,crowdProfile,cueSchedule} from './audio-plan.js';
+import {buildAudioPlan,crowdProfile,cueSchedule,cheerSchedule} from './audio-plan.js';
 const clamp=x=>Math.max(0,Math.min(1,x));
 export function starterShot(context){
  const b=context.createBuffer(1,Math.ceil(context.sampleRate*.65),context.sampleRate),data=b.getChannelData(0);let seed=7331;
@@ -8,13 +8,13 @@ export function starterShot(context){
 }
 export class RaceAudio {
  constructor({embedded={},onStatus=()=>{}}={}){
-  this.onStatus=onStatus;this.ctx=null;this.buffers=null;this.sources=new Set();this.generation=0;this.playing=false;this.race=null;this.cursor=0;this.speed=1;this.masterVolume=.65;this.muted=false;this.events=[];this.profile=null;
-  try{const stored=JSON.parse(localStorage.getItem('race-audio-v1')??'null');if(stored){this.masterVolume=clamp(Number(stored.volume)||0);this.muted=Boolean(stored.muted);}}catch{}
+  this.onStatus=onStatus;this.ctx=null;this.buffers=null;this.sources=new Set();this.generation=0;this.playing=false;this.race=null;this.cursor=0;this.speed=1;this.masterVolume=.65;this.crowdVolume=.3;this.muted=false;this.events=[];this.profile=null;
+  try{const stored=JSON.parse(localStorage.getItem('race-audio-v1')??'null');if(stored){this.masterVolume=clamp(Number(stored.volume)||0);this.muted=Boolean(stored.muted);if(Number.isFinite(stored.crowdVolume))this.crowdVolume=clamp(stored.crowdVolume);}}catch{}
   this.embedded=embedded;this.raw=null;this.rawError=null;this.preload();
  }
  preload(){
   this.rawError=null;
-  this.raw=Promise.all(['bugle','crowd','cheer'].map(async id=>{const response=await fetch(this.embedded[id]??`./audio/${id}.mp3?v=race-audio-1`);if(!response.ok)throw Error(`Could not load ${id} audio`);return[id,await response.arrayBuffer()];})).catch(error=>{this.rawError=error;return null;});
+  this.raw=Promise.all(['bugle','crowd','cheer','hooves'].map(async id=>{const response=await fetch(this.embedded[id]??`./audio/${id}.mp3?v=racetrack-2`);if(!response.ok)throw Error(`Could not load ${id} audio`);return[id,await response.arrayBuffer()];})).catch(error=>{this.rawError=error;return null;});
  }
  async unlock(){
   if(!this.ctx){const Constructor=globalThis.AudioContext??globalThis.webkitAudioContext;if(!Constructor)throw Error('Audio is unavailable in this browser');
@@ -23,10 +23,14 @@ export class RaceAudio {
   }
   // Resume synchronously in the Play/Sound click handler, before any fetch awaits.
   await this.ctx.resume();
-  if(!this.buffers){if(this.rawError)this.preload();const raw=await this.raw;if(!raw)throw this.rawError;const decoded=await Promise.all(raw.map(async([id,b])=>[id,await this.ctx.decodeAudioData(b.slice(0))]));this.buffers=Object.fromEntries(decoded);this.buffers.shot=starterShot(this.ctx);}
+  if(!this.buffers){
+   if(!this.decoding)this.decoding=(async()=>{if(this.rawError)this.preload();const raw=await this.raw;if(!raw)throw this.rawError;const decoded=await Promise.all(raw.map(async([id,b])=>[id,await this.ctx.decodeAudioData(b.slice(0))]));return {...Object.fromEntries(decoded),shot:starterShot(this.ctx)};})();
+   try{this.buffers=await this.decoding;}finally{this.decoding=null;}
+  }
   this.onStatus('ready');
  }
- persist(){try{localStorage.setItem('race-audio-v1',JSON.stringify({volume:this.masterVolume,muted:this.muted}));}catch{}}
+ persist(){try{localStorage.setItem('race-audio-v1',JSON.stringify({volume:this.masterVolume,crowdVolume:this.crowdVolume,muted:this.muted}));}catch{}}
+ setCrowdVolume(value){this.crowdVolume=clamp(value);if(this.crowdMaster)this.crowdMaster.gain.setTargetAtTime(this.crowdVolume,this.ctx.currentTime,.025);this.persist();}
  setVolume(value){this.masterVolume=clamp(value);this.updateVolume();this.persist();}
  setMuted(value){this.muted=Boolean(value);this.updateVolume();this.persist();}
  updateVolume(){if(this.ctx)this.master.gain.setTargetAtTime(this.muted?0:this.masterVolume*.65,this.ctx.currentTime,.025);}
@@ -48,9 +52,12 @@ export class RaceAudio {
  }
  schedule(time){
   const c=this.ctx;this.runGain=c.createGain();this.runGain.gain.setValueAtTime(0,c.currentTime);this.runGain.gain.linearRampToValueAtTime(1,c.currentTime+.035);this.runGain.connect(this.master);
-  this.ambience=c.createGain();this.cheers=c.createGain();this.filter=c.createBiquadFilter();this.filter.type='lowpass';this.filter.Q.value=.3;this.ambience.connect(this.filter);this.cheers.connect(this.filter);this.filter.connect(this.runGain);
+  this.ambience=c.createGain();this.cheers=c.createGain();this.filter=c.createBiquadFilter();this.filter.type='lowpass';this.filter.Q.value=.3;this.ambience.connect(this.filter);this.cheers.connect(this.filter);
+  this.crowdMaster=c.createGain();this.crowdMaster.gain.value=this.crowdVolume;this.filter.connect(this.crowdMaster);this.crowdMaster.connect(this.runGain);
   this.source(this.buffers.crowd,this.ambience,{loop:true,offset:time%this.buffers.crowd.duration});
-  this.source(this.buffers.cheer,this.cheers,{loop:true,offset:(time+4)%this.buffers.cheer.duration});
+  for(const cue of cheerSchedule(this.plan,time,this.buffers.cheer.duration))this.source(this.buffers.cheer,this.cheers,{after:cue.after/this.speed,offset:cue.offset,rate:this.speed,duration:cue.duration});
+  this.hooves=c.createGain();this.hooves.connect(this.runGain);
+  if(time<this.plan.finish+1.5)this.source(this.buffers.hooves,this.hooves,{loop:true,after:Math.max(0,this.plan.delay-time)/this.speed,offset:Math.max(0,time-this.plan.delay)%this.buffers.hooves.duration,rate:this.speed,duration:this.plan.finish+1.5-Math.max(time,this.plan.delay)});
   for(const cue of cueSchedule(this.plan,time,this.buffers.bugle.duration)){
    const gain=c.createGain();gain.gain.value=cue.id==='bugle'?1.05:.78;gain.connect(this.runGain);
    this.source(this.buffers[cue.id],gain,{after:cue.after/this.speed,offset:cue.offset,rate:this.speed,duration:cue.duration});
@@ -60,12 +67,13 @@ export class RaceAudio {
  }
  updateGains(time,shot,immediate=false){
   if(!this.ctx||!this.ambience)return;this.profile=crowdProfile(this.race,this.plan,time,shot);const now=this.ctx.currentTime;
-  for(const [param,value] of [[this.ambience.gain,this.profile.ambience],[this.cheers.gain,this.profile.cheer],[this.filter.frequency,this.profile.lowpass]]){
+  const hoofLevel=(shot==='aerial'?.1:['rail','chase'].includes(shot)?.48:.3)*(time<this.plan.delay?0:Math.exp(-Math.max(0,time-this.plan.finish)/.7));
+  for(const [param,value] of [[this.ambience.gain,this.profile.ambience],[this.cheers.gain,this.profile.cheer],[this.filter.frequency,this.profile.lowpass],[this.hooves.gain,hoofLevel]]){
    if(immediate)param.setValueAtTime(value,now);else param.setTargetAtTime(value,now,.16);
   }
  }
  sync(race,time,playing,speed,shot){this.cursor=time;this.speed=speed;if(!playing){if(this.playing)this.pause();return;}if(this.playing&&this.buffers)this.updateGains(time,shot);}
  captureStream(){if(!this.ctx)throw Error('Press Play first');if(!this.capture){this.capture=this.ctx.createMediaStreamDestination();this.limiter.connect(this.capture);}return this.capture.stream;}
- get diagnostics(){return {state:this.ctx?.state??'locked',playing:this.playing,muted:this.muted,volume:this.masterVolume,loaded:this.buffers?Object.keys(this.buffers):[],activeSources:this.sources.size,profile:this.profile,events:this.events.map(e=>({...e}))};}
+ get diagnostics(){return {state:this.ctx?.state??'locked',playing:this.playing,muted:this.muted,volume:this.masterVolume,crowdVolume:this.crowdVolume,loaded:this.buffers?Object.keys(this.buffers):[],activeSources:this.sources.size,hoofGain:this.hooves?.gain.value??0,profile:this.profile,events:this.events.map(e=>({...e}))};}
  dispose(){this.pause();void this.ctx?.close();}
 }

@@ -16,7 +16,8 @@
     "test:audio": "node verify-audio.mjs",
     "start:multiplayer": "node server/start.js",
     "test:multiplayer": "node verify-multiplayer.mjs",
-    "test:slips": "node verify-slips.mjs"
+    "test:slips": "node verify-slips.mjs",
+    "test:live-sound": "node verify-live-sound.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

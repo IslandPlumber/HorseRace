@@ -11,10 +11,15 @@ let needsRender=true;
 const $ = (id) => document.getElementById(id);
 const names = { trump: 'Donald Trump', biden: 'Joe Biden', mcconnell: 'Mitch McConnell', bernie: 'Bernie Sanders', elon: 'Elon Musk', gordon: 'Gordon Ramsay', snoop: 'Snoop Dogg' };
 const embedded = globalThis.RACE_LAB_EMBEDDED || {};
-const raceAudio=new RaceAudio({embedded:embedded.audio,onStatus:(state)=>{$('sound-status').textContent=state==='error'?'Sound unavailable — tap Sound to retry.':'Bugle, starting shot & live crowd';}});
-function soundControls(){ $('sound-toggle').textContent=raceAudio.muted?'Sound off':'Sound on';$('sound-toggle').setAttribute('aria-pressed',String(!raceAudio.muted));$('sound-volume').value=Math.round(raceAudio.masterVolume*100); }
-$('sound-toggle').addEventListener('click',()=>{raceAudio.setMuted(!raceAudio.muted);soundControls();if(!raceAudio.muted){if(playing)void raceAudio.start(race,time,speed);else void raceAudio.unlock().catch(()=>{$('sound-status').textContent='Sound unavailable — tap Sound to retry.';});}});
+const raceAudio=new RaceAudio({embedded:embedded.audio,onStatus:(state)=>{soundControls();$('sound-status').textContent=state==='error'?'Sound unavailable — tap Enable sound to retry.':'Sound ready · bugle, starting shot, hoofbeats & quiet crowd';}});
+function soundControls(){const active=!raceAudio.muted&&raceAudio.ctx?.state==='running';$('sound-toggle').textContent=raceAudio.muted?'Sound off':active?'Sound on':'Enable sound';$('sound-toggle').setAttribute('aria-pressed',String(active));$('sound-volume').value=Math.round(raceAudio.masterVolume*100);$('crowd-volume').value=Math.round(raceAudio.crowdVolume*100);}
+function armSound(){return raceAudio.unlock().then(()=>{soundControls();if(playing&&!raceAudio.playing&&!raceAudio.muted)void raceAudio.start(race,time,speed);}).catch(()=>{$('sound-status').textContent='Sound unavailable — tap Enable sound to retry.';});}
+$('sound-toggle').addEventListener('click',()=>{if(!raceAudio.muted&&raceAudio.ctx?.state==='running'){raceAudio.setMuted(true);soundControls();}else{raceAudio.setMuted(false);void armSound();}});
 $('sound-volume').addEventListener('input',()=>{raceAudio.setVolume(Number($('sound-volume').value)/100);soundControls();});
+$('crowd-volume').addEventListener('input',()=>{raceAudio.setCrowdVolume(Number($('crowd-volume').value)/100);soundControls();});
+// A real sign-in, room or betting gesture arms audio before asynchronous work.
+$('multiplayer').addEventListener('pointerdown',()=>{if(!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
+$('multiplayer').addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
 soundControls();
 const viewport = $('viewport');
 const scene = new THREE.Scene();
@@ -97,7 +102,7 @@ function syncControls() {
   const blocked = loading || !race;
   for (const id of ['play', 'restart', 'timeline', 'speed', 'download']) $(id).disabled = blocked;
   for (const id of ['generate', 'random-seed', 'race-select', 'import-file']) $(id).disabled = loading;
-  if(multiplayer?.managed){for(const id of ['restart','timeline','speed','download'])$(id).disabled=true;for(const id of ['generate','random-seed','race-select','import-file'])$(id).disabled=true;$('play').disabled=loading;$('play').textContent='Enable race sound';return;}
+  if(multiplayer?.managed){for(const id of ['restart','timeline','speed','download'])$(id).disabled=true;for(const id of ['generate','random-seed','race-select','import-file'])$(id).disabled=true;$('play').disabled=loading;$('play').textContent=!raceAudio.muted&&raceAudio.ctx?.state==='running'?'Race sound on':'Enable race sound';return;}
   $('play').textContent = playing ? 'Pause' : (time >= (race?.duration ?? Infinity) ? 'Replay race' : 'Play race');
 }
 
@@ -422,7 +427,7 @@ function drawMap(sample){
 }
 $('camera-mode').addEventListener('change',()=>{cameraMode=$('camera-mode').value;if(race)displayFrame(true);});
 $('next-camera').addEventListener('click',()=>{const modes=['auto','broadcast','rail','chase','aerial'];cameraMode=modes[(modes.indexOf(cameraMode)+1)%modes.length];$('camera-mode').value=cameraMode;if(race)displayFrame(true);});
-function enableLiveSound(){if(multiplayer?.frame().ready&&playing)void raceAudio.start(race,time,1);else void raceAudio.unlock().catch(()=>{$('sound-status').textContent='Sound unavailable — tap Sound to retry.';});}
+function enableLiveSound(){raceAudio.setMuted(false);void armSound();}
 $('play').addEventListener('click', () => multiplayer?.managed?enableLiveSound():playing ? pause() : play());
 $('restart').addEventListener('click', () => { pause(); seek(0); $('race-note').textContent = 'Back at the start. The same race will replay.'; });
 $('timeline').addEventListener('input', () => { pause(); seek($('timeline').value); });
@@ -474,7 +479,7 @@ renderer.setAnimationLoop((now) => {
     if(multiplayer?.managed){
       const live=multiplayer.frame();const wasPlaying=playing;speed=1;
       time=live.ready?live.time:0;playing=Boolean(live.ready&&live.playing&&!document.hidden);
-      if(playing&&!wasPlaying&&raceAudio.ctx?.state==='running')void raceAudio.start(race,time,1);
+      if(playing&&!wasPlaying&&!raceAudio.playing&&!raceAudio.muted&&raceAudio.ctx?.state==='running')void raceAudio.start(race,time,1);
       if(!playing&&wasPlaying)raceAudio.pause();
       syncControls();
     }else if (playing) {

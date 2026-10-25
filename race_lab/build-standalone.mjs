@@ -11,7 +11,7 @@ const manifest = JSON.parse(await readFile(path.join(root,'asset-manifest.json')
 assert.deepEqual(manifest.actors.map(actor=>actor.id).sort(),[...ACTOR_IDS].sort(),
   'Wait for the complete seven-actor export before bundling.');
 const embedded = {assets:{},races:{},audio:{}};
-for(const id of ['bugle','crowd','cheer'])embedded.audio[id]='data:audio/mpeg;base64,'+(await readFile(path.join(root,'audio',`${id}.mp3`))).toString('base64');
+for(const id of ['bugle','crowd','cheer','hooves'])embedded.audio[id]='data:audio/mpeg;base64,'+(await readFile(path.join(root,'audio',`${id}.mp3`))).toString('base64');
 for (const actor of manifest.actors) {
   embedded.assets[actor.id] = 'data:model/gltf-binary;base64,' +
     (await readFile(path.join(root,actor.file))).toString('base64');

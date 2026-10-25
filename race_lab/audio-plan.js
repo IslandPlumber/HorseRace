@@ -29,3 +29,10 @@ export function cueSchedule(plan,time,bugleDuration){
  if(time<=plan.delay+.001)cues.push({id:'shot',after:Math.max(0,plan.delay-time),offset:0});
  return cues;
 }
+/** Brief reactions, rather than a continuously looping stadium cheer. */
+export function cheerSchedule(plan,time,duration=4){
+ const candidates=[{time:plan.delay+.8,kind:'start'},...plan.changes.map(c=>({time:c.time,kind:'lead'})),{time:plan.finish,kind:'finish'}].sort((a,b)=>a.time-b.time);
+ const selected=[];
+ for(const cue of candidates)if(cue.kind==='finish'||!selected.length||cue.time-selected.at(-1).time>=4)selected.push(cue);
+ return selected.flatMap(cue=>{const length=Math.min(duration,cue.kind==='finish'?4:2.3);if(time>=cue.time+length)return[];const offset=Math.max(0,time-cue.time);return[{...cue,after:Math.max(0,cue.time-time),offset,duration:length-offset}];});
+}
