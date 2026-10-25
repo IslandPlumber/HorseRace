@@ -22,4 +22,8 @@ Elon's head silhouette, enlargement and animation are adaptations of the credite
 photograph; no photographic expression or voice was generated.
 
 Runtime: Three.js (MIT). Development tools: esbuild (MIT), Playwright (Apache-2.0).
-The browser test is silent; it does not include or retime the previous dialogue.
+The original rider dialogue is not included or retimed in this runtime.
+
+## Race sounds
+
+Bugle: U.S. Army, [First Call](https://commons.wikimedia.org/wiki/File:FirstCall.mp3), public domain. Crowd bed: eguobyte, [large crowd](https://commons.wikimedia.org/wiki/File:360703_eguobyte_large-crowd-medium-distance-stereo.wav), CC0. Cheering: WebbFilmsUK, [F1 Race Crowd Applause Air Horns](https://commons.wikimedia.org/wiki/File:F1-Race-Crowd-Applause-Air-Horns.wav), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); filtered, cropped, peak-limited, level-adjusted, crossfaded and dynamically mixed. Starter shot: original procedural sound design. No endorsement implied. [Full sound credits and adaptation notes](audio/CREDITS.md).

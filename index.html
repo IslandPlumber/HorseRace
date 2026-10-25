@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>StreakChat · Race Lab</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%231b241e%22/%3E%3Ctext x=%2216%22 y=%2223%22 text-anchor=%22middle%22 fill=%22%23dfbd70%22 font-size=%2224%22%3ES%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=park-circuit-2">
+  <link rel="stylesheet" href="./styles.css?v=park-audio-3">
 </head>
 <body>
   <main class="shell">
@@ -25,6 +25,7 @@
         <div class="camera-tools"><label>Camera <select id="camera-mode"><option value="auto">Auto director</option><option value="broadcast">Broadcast</option><option value="rail">Trackside</option><option value="chase">Chase</option><option value="aerial">Whole course</option></select></label><button id="next-camera" class="button quiet">Switch view</button></div>
         <div class="viewport" id="viewport"><canvas id="course-map" width="200" height="120" aria-label="Course map and field positions"></canvas><div id="gate-count" hidden></div><div class="race-hud"><strong id="section-name">AT THE GATES</strong><span id="distance-left"></span><span id="camera-label">GATE</span></div><div id="loading" class="loading" role="status">Loading reusable rider models…</div><div id="caption" class="caption" aria-live="polite" hidden></div><div class="stage-badge" id="stage-badge">Seven reusable racers</div></div>
         <div class="transport"><button id="play" class="button primary" disabled>Play race</button><button id="restart" class="button quiet" disabled>Restart</button><label class="timeline"><span class="sr-only">Race timeline</span><input id="timeline" type="range" min="0" max="12" value="0" step="0.01" disabled></label><button id="speed" class="button quiet speed" disabled aria-label="Playback speed">1×</button></div>
+        <div class="audio-tools" aria-label="Race sound"><button id="sound-toggle" class="button quiet" aria-pressed="true">Sound on</button><label>Volume <input id="sound-volume" type="range" min="0" max="100" value="65" aria-label="Sound volume"></label><span id="sound-status">Sound starts when you press Play.</span></div>
         <div class="under-stage"><span id="race-note">The full race is prepared before playback.</span><span>Four turns. One finish.</span></div>
       </section>
       <aside class="standings-card" aria-label="Race standings">
@@ -35,8 +36,8 @@
       </aside>
     </div>
     <p id="error" class="error" role="alert" hidden></p>
-    <footer class="footer"><span>Circuit race preview · seeded results · reusable riders</span><span>Photo and horse asset credits remain with the <a href="./CREDITS.md">source assets</a>.</span></footer>
+    <footer class="footer"><span>Circuit race preview · seeded results · reusable riders</span><span>Photo, horse and sound credits: <a href="./CREDITS.md">sources and licenses</a>.</span></footer>
   </main>
-  <script src="./app.js?v=park-circuit-2"></script>
+  <script src="./app.js?v=park-audio-3"></script>
 </body>
 </html>

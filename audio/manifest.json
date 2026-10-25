@@ -1,0 +1,51 @@
+{
+  "sample_rate": 32000,
+  "tracks": [
+    {
+      "id": "bugle",
+      "file": "bugle.mp3",
+      "source": "https://upload.wikimedia.org/wikipedia/commons/5/5d/FirstCall.mp3",
+      "source_page": "https://commons.wikimedia.org/wiki/File:FirstCall.mp3",
+      "artist": "U.S. Army",
+      "license": "Public domain",
+      "source_sha256": "e51513eea1e96777b3a4c45eec2a1c1bfd389745e6e1a23a45b8603709d1dda7",
+      "sha256": "3edc522099b35909cced0a9f6d43e43efc92d2779a4b86ea5308c532759eed7d",
+      "bytes": 77372,
+      "duration_seconds": 6.3385625,
+      "decoded_peak": 0.6810418367385864,
+      "decoded_rms": 0.09283647686243057,
+      "adaptation": "Filtered, trimmed, level-adjusted; crowd/cheer loop seams crossfaded."
+    },
+    {
+      "id": "crowd",
+      "file": "crowd.mp3",
+      "source": "https://upload.wikimedia.org/wikipedia/commons/a/a9/360703_eguobyte_large-crowd-medium-distance-stereo.wav",
+      "source_page": "https://commons.wikimedia.org/wiki/File:360703_eguobyte_large-crowd-medium-distance-stereo.wav",
+      "artist": "eguobyte",
+      "license": "CC0",
+      "source_sha256": "9821f013c7a752c809a1805aa9fc7a0ac17fd813b40e7d81ba3c286e2e8fd81f",
+      "sha256": "e884d6c37fbe97fcc84cc31980f9534adb98764b6f0402316c8f88e273abca45",
+      "bytes": 284732,
+      "duration_seconds": 23.65,
+      "decoded_peak": 0.6760809421539307,
+      "decoded_rms": 0.13542264699935913,
+      "adaptation": "Filtered, trimmed, level-adjusted; crowd/cheer loop seams crossfaded."
+    },
+    {
+      "id": "cheer",
+      "file": "cheer.mp3",
+      "source": "https://upload.wikimedia.org/wikipedia/commons/9/94/F1-Race-Crowd-Applause-Air-Horns.wav",
+      "source_page": "https://commons.wikimedia.org/wiki/File:F1-Race-Crowd-Applause-Air-Horns.wav",
+      "artist": "WebbFilmsUK",
+      "license": "CC BY 4.0",
+      "source_sha256": "a2edd08fd11fb6b77352bf695f1db3f9a76941f4aedd9c90e0413b840b750580",
+      "sha256": "0a063e308133437e651cbb493c51dc1a77179f0621eba329976c6a17fc8fe419",
+      "bytes": 188828,
+      "duration_seconds": 15.65,
+      "decoded_peak": 0.7716077566146851,
+      "decoded_rms": 0.13653451204299927,
+      "adaptation": "Filtered, trimmed, level-adjusted; crowd/cheer loop seams crossfaded."
+    }
+  ],
+  "starter_shot": "Original deterministic procedural sound design in race-audio.js; no recording or voice used."
+}
