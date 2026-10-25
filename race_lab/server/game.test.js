@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Game, RULES } from "./game.js";
 import { createServer } from "./http.js";
+import { simulateRace } from "./race-simulation.js";
+import { generateRace } from "../race-core.js";
 function fixture(t) {
   const dir = mkdtempSync(path.join(tmpdir(), "horserace-test-"));
   let now = 100000;
@@ -19,6 +21,47 @@ function fixture(t) {
   return { game, db, advance: (n) => (now += n), clock: () => now };
 }
 const user = (g, name) => g.register(name, "good-password-123");
+
+test("race simulation uses frozen purchased levels and survives a restart without rerolling", (t) => {
+  const {game:g, db, clock, advance} = fixture(t), a = user(g, 'Trained');
+  g.upgrade(a.user.id, 'speed'); g.upgrade(a.user.id, 'stamina'); g.upgrade(a.user.id, 'focus');
+  const code = g.create(a.user.id); g.start(a.user.id, code);
+  const entries = JSON.parse(g.latest(code).entrants);
+  assert.deepEqual(entries.find(e => e.userId === a.user.id), {
+    horse: 'elon', userId: a.user.id, username: 'Trained', speed: 1, stamina: 1, focus: 1,
+  });
+  advance(1001); g.tick();
+  const def = g.room(a.user.id, code).race.definition;
+  const replay = simulateRace(def.seed, {entrants: entries, duration: 10, title: def.title});
+  replay.id = def.id;
+  assert.deepEqual(replay, def);
+  assert.equal(g.latest(code).ends, g.latest(code).starts + def.duration * 1000);
+  const restored = new Game(db, {clock});
+  try {
+    assert.deepEqual(restored.room(a.user.id, code).race.definition, def);
+    advance(10000); restored.tick();
+    assert.deepEqual(restored.room(a.user.id, code).race.results.map(r => r.horse), def.outcome);
+    const profile = restored.profile(a.user.id); restored.tick();
+    assert.deepEqual(restored.profile(a.user.id), profile);
+    assert.equal(profile.speed, 1); assert.equal(profile.stamina, 1); assert.equal(profile.focus, 1);
+  } finally { restored.close(); }
+});
+
+test("older stored race definitions keep their outcome and payouts after an engine update", (t) => {
+  const {game:g, db, clock, advance} = fixture(t), a = user(g, 'Returning');
+  const code = g.create(a.user.id); g.start(a.user.id, code);
+  const r = g.latest(code), old = generateRace('legacy-in-flight', {duration: 10});
+  old.id = r.id;
+  g.run("UPDATE races SET phase='racing',definition=? WHERE id=?", JSON.stringify(old), r.id);
+  advance(12000);
+  const restored = new Game(db, {clock});
+  try {
+    restored.tick();
+    assert.deepEqual(restored.room(a.user.id, code).race.definition, old);
+    assert.deepEqual(restored.room(a.user.id, code).race.results.map(e => e.horse), old.outcome);
+    assert.equal(restored.profile(a.user.id).races, 1);
+  } finally { restored.close(); }
+});
 test("accounts use hashed passwords, case-insensitive names and expiring hashed sessions", (t) => {
   const { game: g, advance } = fixture(t),
     a = user(g, "Alice");

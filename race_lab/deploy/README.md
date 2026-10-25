@@ -87,6 +87,17 @@ geometry/materials, otherwise per-instance GPU buffers accumulate between races.
 
 ## Save data and recovery
 
+Club races now simulate the frozen entry skills through actual movement:
+Speed controls acceleration/cruising pace, Stamina reduces late fatigue, and
+Focus helps starts, corners and rhythm. Finish crossings determine the outcome.
+The shared timeline is persisted at betting cutoff and reused after restart;
+older saved definitions retain their original outcomes and payouts. Round end
+follows the final crossing, within the original maximum time slot. See
+`../TRAINING.md` for the model and balance audit. `npm run test:training` verifies
+the real upgrade interface and shared motion on desktop and phone. Prices,
+existing levels, balances, prizes and betting rules are unchanged; no migration
+is required. Include `server/race-simulation.js` in every server release.
+
 The SQLite database stores scrypt password hashes, hashed 30-day login sessions,
 horses, upgrades, coins, points, rooms, bets and a coin ledger. Passwords are not
 saved in the browser. A browser stores its login token so it can return later;

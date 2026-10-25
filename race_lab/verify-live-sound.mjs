@@ -8,7 +8,7 @@ import {Game} from './server/game.js';
 import {createServer} from './server/http.js';
 const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-sound-'));
 const out='review/deployment/audio-v2';await mkdir(out,{recursive:true});
-const game=new Game(path.join(dir,'game.sqlite'),{bettingMs:1000,duration:20});
+const game=new Game(path.join(dir,'game.sqlite'),{bettingMs:1000,duration:64});
 const server=createServer(game,{site:path.resolve('site')});await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const proxy=http.createServer((req,res)=>{
  if(!req.url.startsWith('/horserace/')){res.writeHead(404);res.end();return;}

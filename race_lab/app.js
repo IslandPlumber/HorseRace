@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { validateRace, sampleRace, generateRace } from './race-core.js';
+import { runnerStatus } from './training.js';
 import {trackPoint,raceSection,circuitLength} from './track.js';
 import {createCourse} from './course-view.js';
 import {RaceAudio} from './race-audio.js';
@@ -335,7 +336,7 @@ function renderStandings(sample) {
   for (const runner of sample.runners) {
     const li = $('standings').querySelector(`[data-rider="${runner.id}"]`);
     if (!li) continue;
-    li.querySelector('.rider-sub').textContent = runner.finished ? 'Finished' : `Lane ${runner.lane + 1}`;
+    li.querySelector('.rider-sub').textContent = runnerStatus(race, runner, time);
     li.querySelector('.distance').textContent = runner.finished && Number.isFinite(runner.finishTime) ? `${runner.finishTime.toFixed(2)} s` : `${Math.min(race.track.length, runner.distance).toFixed(1)} m`;
   }
   const first = sample.runners.find((runner) => runner.id === sample.standings[0]);

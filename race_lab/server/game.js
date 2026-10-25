@@ -5,9 +5,9 @@ import {
   scryptSync,
   timingSafeEqual,
   createHash,
-  randomInt,
 } from "node:crypto";
-import { ACTOR_IDS, generateRace, validateRace } from "../race-core.js";
+import { ACTOR_IDS } from "../race-core.js";
+import { simulateRace } from "./race-simulation.js";
 export const RULES = {
   startingCoins: 1000,
   prizes: [200, 140, 100, 75, 50, 35, 25],
@@ -432,37 +432,16 @@ export class Game {
     });
   }
   prepare(r) {
-    const entrants = JSON.parse(r.entrants),
-      remaining = [...entrants],
-      order = [];
-    while (remaining.length) {
-      const weights = remaining.map(
-          (e) => 1 + 0.14 * e.speed + 0.1 * e.stamina + 0.08 * e.focus,
-        ),
-        total = weights.reduce((a, b) => a + b, 0);
-      let roll = (randomInt(0, 2 ** 30) / 2 ** 30) * total,
-        index = 0;
-      while (index < weights.length - 1 && roll >= weights[index])
-        roll -= weights[index++];
-      order.push(remaining.splice(index, 1)[0].horse);
-    }
-    const def = generateRace(randomBytes(16).toString("hex"), {
-      duration: this.duration,
+    const def = simulateRace(randomBytes(16).toString("hex"), {
+      entrants: JSON.parse(r.entrants),
+      duration: (r.ends - r.starts) / 1000,
       title: `Room ${r.code} · Race ${r.number}`,
     });
-    const mapping = Object.fromEntries(
-      def.outcome.map((old, i) => [old, order[i]]),
-    );
-    def.cast.forEach((e) => {
-      e.id = mapping[e.id];
-    });
-    def.outcome = order;
     def.id = r.id;
-    def.events = [];
-    validateRace(def);
     this.run(
-      "UPDATE races SET phase='racing', definition=? WHERE id=? AND phase='betting'",
+      "UPDATE races SET phase='racing', definition=?,ends=? WHERE id=? AND phase='betting'",
       JSON.stringify(def),
+      r.starts + def.duration * 1000,
       r.id,
     );
     return def;
@@ -515,7 +494,7 @@ export class Game {
         this.clock(),
       )) {
         const def = r.definition ? JSON.parse(r.definition) : this.prepare(r);
-        if (this.clock() >= r.ends) this.settle(r, def);
+        if (this.clock() >= r.starts + def.duration * 1000) this.settle(r, def);
       }
     });
   }

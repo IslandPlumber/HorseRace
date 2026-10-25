@@ -1,5 +1,6 @@
 import { betSlip, roundFromRoom, historyList } from "./bet-slips.js";
 import { RoomBrowser } from "./room-browser.js";
+import { TRAINING } from "./training.js";
 const $ = (id) => document.getElementById(id);
 const HORSES = {
   trump: "Donald Trump",
@@ -58,7 +59,7 @@ export class MultiplayerUI {
   <form id="mp-auth" class="club-row"><label class="field">Username<input id="mp-username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required></label><label class="field">Password<input id="mp-password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><button class="button primary" type="submit" name="action" value="login">Sign in</button><button class="button" type="submit" name="action" value="register">Create account</button></form>
   <div id="mp-account" hidden><div class="club-row account-row"><strong id="mp-name"></strong><span id="mp-wallet"></span><button id="mp-logout" class="button quiet">Sign out</button></div>
   <div class="club-tabs" role="tablist" aria-label="Racing club"><button id="mp-tab-live" class="club-tab" role="tab" aria-controls="mp-live-panel" aria-selected="true">Live room & stable</button><button id="mp-tab-history" class="club-tab" role="tab" aria-controls="mp-history-panel" aria-selected="false" tabindex="-1">Bet slips & results <span id="mp-history-count">0</span></button></div>
-  <div id="mp-live-panel" class="club-grid" role="tabpanel" aria-labelledby="mp-tab-live"><div class="club-sidebar"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Upgrades improve your chances. Every race still has an element of luck.</p><div id="mp-upgrades" class="club-row"></div><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bet loses. A winning bet returns 4× the stake, including the stake. Career points and wins track your own horse.</p></section><section id="mp-room-directory" class="club-box room-directory" aria-label="Other race rooms"></section></div>
+  <div id="mp-live-panel" class="club-grid" role="tabpanel" aria-labelledby="mp-tab-live"><div class="club-sidebar"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Train how your horse runs. Race-day form and luck still matter.</p><div id="mp-upgrades" class="training-grid" aria-label="Train your racer"></div><details class="training-help"><summary>How training works</summary><p class="club-note">Training changes your horse’s movement throughout the race. Your levels follow you when you change riders. Each skill has five permanent levels; higher levels cost more. Training locks when betting opens and applies to your own racer, regardless of your bet. No upgrade guarantees a win.</p></details><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bet loses. A winning bet returns 4× the stake, including the stake. Career points and wins track your own horse.</p></section><section id="mp-room-directory" class="club-box room-directory" aria-label="Other race rooms"></section></div>
   <section class="club-box"><h3>Race with friends</h3><div id="mp-lobby"><button id="mp-create" class="button primary">Create room</button><form id="mp-join-form" class="club-row"><label class="field">Room code<input id="mp-code" maxlength="6" minlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="ABC123" required></label><button class="button" type="submit">Join room</button></form></div>
   <div id="mp-room" hidden><div class="club-row"><strong id="mp-room-name"></strong><button id="mp-leave" class="button quiet">Leave room</button></div><p id="mp-members" class="club-note"></p><strong id="mp-phase"></strong><p class="club-note">Seven starters; CPU racers fill empty places. The host opens each round.</p><button id="mp-start" class="button primary">Open betting · start next race</button>
   <section class="current-slip"><h4>This round · your bet slip</h4><form id="mp-bet-form" class="club-row" hidden><label class="field">Win pick<select id="mp-bet-horse"></select></label><label class="field">Stake<input id="mp-stake" type="number" min="10" max="500" step="1" value="50" required></label><button class="button primary" type="submit">Place bet</button><p id="mp-bet-preview" class="club-note"></p></form><div id="mp-bet-note" aria-live="polite"></div></section><div id="mp-finish-order" hidden><h4>Finishing order</h4><ol id="mp-results"></ol></div></div></section></div>
@@ -371,13 +372,25 @@ export class MultiplayerUI {
           const level = u[kind],
             cost = base * (level + 1) ** 2,
             b = document.createElement("button");
+          const info = TRAINING[kind], card = document.createElement("div");
+          card.className = "training-card";
+          const heading = document.createElement("strong");
+          heading.textContent = `${info.name} · ${level}/5`;
+          const meter = document.createElement("meter");
+          meter.min = 0; meter.max = 5; meter.value = level;
+          meter.setAttribute("aria-label", `${info.name} level`);
+          const description = document.createElement("p");
+          description.textContent = info.description;
           b.className = "button quiet";
           b.textContent = `${kind} ${level}/5 · ${level >= 5 ? "Max" : cost + " coins"}`;
           b.disabled =
             locked || this.busy || !this.online || level >= 5 || u.coins < cost;
           b.onclick = () =>
             void this.action(() => this.api("/api/upgrades", { kind }));
-          return b;
+          b.setAttribute("aria-label", level >= 5 ? `${info.name} at maximum level` :
+            `Train ${info.name} to level ${level + 1} for ${cost} coins`);
+          card.append(heading, meter, description, b);
+          return card;
         }),
       );
     }

@@ -6,7 +6,7 @@
   "description": "Local data-driven race test using the reusable HorseRace cast",
   "scripts": {
     "start": "python ../serve_preview.py",
-    "test": "node --test race-core.test.js track.test.js audio-plan.test.js gait.test.js server/game.test.js",
+    "test": "node --test race-core.test.js track.test.js audio-plan.test.js gait.test.js server/game.test.js server/race-simulation.test.js",
     "test:assets": "node verify-assets.mjs",
     "test:browser": "node verify-browser.mjs",
     "build": "node build-standalone.mjs",
@@ -19,7 +19,9 @@
     "test:slips": "node verify-slips.mjs",
     "test:live-sound": "node verify-live-sound.mjs",
     "test:refinements": "node verify-refinements.mjs",
-    "test:resources": "node verify-resources.mjs"
+    "test:resources": "node verify-resources.mjs",
+    "test:training-balance": "node analyze-training.mjs",
+    "test:training": "node verify-training.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

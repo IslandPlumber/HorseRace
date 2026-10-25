@@ -97,7 +97,12 @@ export class RaceAudio {
   for(const horse of hoofSchedule(this.race,time)){
    const gain=c.createGain(),pan=c.createStereoPanner();gain.gain.value=1/Math.pow(this.race.cast.length,.3);pan.pan.value=(horse.lane-(this.race.cast.length-1)/2)/Math.max(1,this.race.cast.length)*1.3;gain.connect(pan);pan.connect(this.hooves);
    this.horseChannels.set(horse.id,{gain,pan,finish:horse.finish});
-   for(const segment of horse.segments)this.source(this.hoofBuffers.get(horse.id),gain,{loop:true,after:segment.after/this.speed,offset:segment.offset,rate:segment.rate*this.speed,duration:segment.duration});
+   // One continuous voice per horse, even with a detailed simulation timeline.
+   // Scheduled rates integrate the same distance clock used by the rendered gait.
+   const first=horse.segments[0];
+   const voice=this.source(this.hoofBuffers.get(horse.id),gain,{loop:true,after:first.after/this.speed,offset:first.offset,rate:first.rate*this.speed});
+   for(const segment of horse.segments)voice.playbackRate.setValueAtTime(segment.rate*this.speed,this.scheduleAnchor+segment.after/this.speed);
+   voice.stop(this.scheduleAnchor+(horse.finish-time)/this.speed);
   }
   for(const cue of cueSchedule(this.plan,time,this.buffers.bugle.duration)){
    const gain=c.createGain();gain.gain.value=cue.id==='bugle'?1.05:.78;gain.connect(this.runGain);

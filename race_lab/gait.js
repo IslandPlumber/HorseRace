@@ -11,13 +11,13 @@ export function distanceAt(progress,time){
  return progress.at(-1).distance;
 }
 export function gaitClock(race,runner,time){
- const nominal=race.track.length/Math.max(.1,finishTime(race,runner)-(race.startDelay??0));
+ const nominal=race.simulation?.nominalSpeed??race.track.length/Math.max(.1,finishTime(race,runner)-(race.startDelay??0));
  return gaitPhase(runner.id)+distanceAt(runner.progress,Math.min(time,finishTime(race,runner)))/nominal;
 }
 export function hoofSchedule(race,time){
  const delay=race.startDelay??0;
  return race.cast.map(runner=>{
-  const finish=finishTime(race,runner),nominal=race.track.length/Math.max(.1,finish-delay),segments=[];
+  const finish=finishTime(race,runner),nominal=race.simulation?.nominalSpeed??race.track.length/Math.max(.1,finish-delay),segments=[];
   for(let i=1;i<runner.progress.length;i++){
    const a=runner.progress[i-1],b=runner.progress[i],begin=Math.max(time,delay,a.time),end=Math.min(finish,b.time);
    const rate=(b.distance-a.distance)/(b.time-a.time)/nominal;

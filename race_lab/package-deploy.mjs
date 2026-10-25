@@ -9,7 +9,7 @@ try {
   for (const file of ["site", "race-core.js", "track.js", "deploy"])
     await cp(file, path.join(stage, file), { recursive: true });
   await mkdir(path.join(stage, "server"));
-  for (const file of ["game.js", "http.js", "start.js"])
+  for (const file of ["game.js", "http.js", "start.js", "race-simulation.js"])
     await cp("server/" + file, path.join(stage, "server", file));
   await writeFile(
     path.join(stage, "package.json"),
