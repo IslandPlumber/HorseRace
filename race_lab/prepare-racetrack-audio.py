@@ -26,6 +26,20 @@ with tempfile.TemporaryDirectory(prefix='horserace-audience-') as directory:
     for name,key,start,duration,rms,loop in [('crowd','audience',0,8,.075,True),('cheer','audience',17,4,.13,False),('hooves','hooves',8,8,.18,True)]:
         audio=raw[key][int(start*RATE):int((start+duration)*RATE)].copy()
         assert len(audio)>=3*RATE
+        if name=='crowd':
+            # Suppress foreground bursts rather than endlessly repeating them.
+            size,hop=1024,256
+            padded=np.pad(audio,((size,size),(0,0)))
+            window=np.hanning(size)[:,None]
+            spectra=np.array([np.fft.rfft(padded[i:i+size]*window,axis=0) for i in range(0,len(padded)-size,hop)])
+            magnitudes=np.abs(spectra)
+            for i in range(len(spectra)):
+                bed=np.median(magnitudes[max(0,i-12):min(len(spectra),i+13)],axis=0)
+                spectra[i]*=np.minimum(1,(bed*1.35+1e-8)/(magnitudes[i]+1e-8))
+            clean=np.zeros_like(padded);weight=np.zeros((len(padded),1))
+            for j,spectrum in enumerate(spectra):
+                i=j*hop;clean[i:i+size]+=np.fft.irfft(spectrum,n=size,axis=0)*window;weight[i:i+size]+=window**2
+            audio=(clean/np.maximum(weight,1e-8))[size:size+len(audio)]
         if loop:
             n=int(.25*RATE);u=np.linspace(0,1,n)[:,None]
             audio=np.concatenate([audio[n:-n],audio[-n:]*(1-u)+audio[:n]*u])
@@ -40,6 +54,6 @@ with tempfile.TemporaryDirectory(prefix='horserace-audience-') as directory:
         assert np.max(np.abs(samples))<1
         url,page,artist,license=sources[key]
         tracks.append(dict(id=name,file=target.name,source=url,source_page=page,artist=artist,license=license,source_sha256=hashes[key],sha256=hashlib.sha256(target.read_bytes()).hexdigest(),bytes=target.stat().st_size,duration_seconds=len(samples)/2/RATE,decoded_peak=float(np.max(np.abs(samples))),decoded_rms=float(np.sqrt(np.mean(samples**2))),adaptation=f'{start}–{start+duration}s excerpt; filtered, normalized, '+('crossfaded loop' if loop else 'short faded applause reaction; never continuously looped')))
-manifest.update(tracks=tracks,preparation='prepare-racetrack-audio.py',mix='Quiet outdoor audience; occasional applause; galloping foreground; no F1 air horns.')
+manifest.update(tracks=tracks,preparation='prepare-racetrack-audio.py',mix='Transient-suppressed outdoor audience; brief enveloped applause; individual distance-driven hoof voices derived from recorded galloping and dry dirt impacts; no fixed-size herd loop or F1 air horns.')
 (ROOT/'audio/manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(json.dumps(tracks,indent=2))

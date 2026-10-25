@@ -66,6 +66,19 @@ Bet returns include the stake; bet profit is return minus stake; round coin
 change is minus stake plus bet return plus the player's finish prize. Upgrades
 are separate purchases, and career points/wins describe the player's own horse.
 
+Room discovery remains visible while already in a room. Active clients refresh
+the directory every five seconds and report presence through authenticated game
+requests; presence expires after 30 seconds without contact. Switching with a
+chosen available horse is one transaction, so failure leaves the old room and
+horse intact. An active entrant must finish before switching. If a host goes
+away, an online member can inherit hosting after the presence grace period; a
+service restart also gets that grace period before any hosting transfer.
+
+`npm run test:refinements` verifies room discovery/switching in desktop and phone
+browsers, per-horse sound for fields of one/four/seven, and the park rendering.
+The richer scenery uses instanced geometry and generated canvas textures, with
+no new external image dependency. Currency and payout rules are unchanged.
+
 ## Save data and recovery
 
 The SQLite database stores scrypt password hashes, hashed 30-day login sessions,

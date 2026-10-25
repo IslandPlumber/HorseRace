@@ -291,3 +291,38 @@ test("saved slips separate winning bets, losing bets and finish prizes across ro
   const restored = new Game(db, { clock });
   try { assert.deepEqual(restored.history(a.user.id), history); } finally { restored.close(); }
 });
+
+test("room discovery includes online presence and switching chooses a free horse atomically", (t) => {
+  const {game:g,advance}=fixture(t);
+  const a=user(g,'Alice'),b=user(g,'Bobby');
+  const first=g.create(a.user.id),second=g.create(b.user.id);
+  assert.equal(g.onlineCount(),2);
+  assert.equal(g.rooms().find(r=>r.code===second).online,1);
+  assert.equal(g.rooms().find(r=>r.code===second).phase,'waiting');
+  assert.throws(()=>g.join(a.user.id,second,'elon'),/taken/);
+  assert.equal(g.membership(a.user.id),first,'failed join preserves the old room');
+  assert.equal(g.profile(a.user.id).horse,'elon');
+  g.join(a.user.id,second,'snoop');
+  assert.equal(g.membership(a.user.id),second);
+  assert.equal(g.profile(a.user.id).horse,'snoop');
+  assert.equal(g.rooms().find(r=>r.code===second).players,2);
+  g.start(b.user.id,second);
+  const c=user(g,'Carol'),third=g.create(c.user.id);
+  assert.throws(()=>g.join(a.user.id,third,'gordon'),/after/);
+  assert.equal(g.membership(a.user.id),second);
+  assert.equal(g.profile(a.user.id).horse,'snoop');
+  advance(31000);assert.equal(g.onlineCount(),0);
+  g.auth(c.token);assert.equal(g.onlineCount(),1);
+  assert.equal(g.rooms().find(r=>r.code===third).online,1);
+  assert.equal(g.rooms().find(r=>r.code===second).online,0);
+});
+
+test("an online racer takes over an abandoned room after the grace period", (t)=>{
+ const {game:g,advance}=fixture(t),a=user(g,'Alice'),b=user(g,'Bobby');
+ const room=g.create(a.user.id);g.join(b.user.id,room,'snoop');
+ assert.equal(g.room(b.user.id,room).hostId,a.user.id);
+ advance(31000);g.auth(b.token);
+ assert.equal(g.room(b.user.id,room).hostId,b.user.id);
+ g.start(b.user.id,room);
+ assert.equal(g.latest(room).phase,'betting');
+});

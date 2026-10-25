@@ -129,7 +129,7 @@ export function createServer(
             result = { history: game.history(id) };
             break;
           case "GET /api/rooms":
-            result = { rooms: game.rooms() };
+            result = { rooms: game.rooms(), online: game.onlineCount() };
             break;
           case "POST /api/rooms":
             result = { code: game.create(id) };
@@ -144,7 +144,7 @@ export function createServer(
             if (req.method === "GET" && !action)
               result = { room: game.room(id, code) };
             else if (req.method === "POST" && action) {
-              if (action === "join") game.join(id, code);
+              if (action === "join") game.join(id, code, body.horse);
               else if (action === "leave") {
                 requireMembership();
                 game.leave(id);

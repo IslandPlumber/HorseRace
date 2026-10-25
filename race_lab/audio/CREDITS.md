@@ -9,7 +9,13 @@
 `prepare-racetrack-audio.py` reproducibly prepares the replacement audience,
 applause and gallop tracks while retaining the bugle. Crowd volume is independent
 of the bugle, starter and hoofbeats. Applause uses brief timed reactions rather
-than continuous stadium cheering. Source licenses apply to individual recordings;
+than continuous stadium cheering. Foreground bursts in the audience bed are
+spectrally suppressed. The gallop recording supplies a small natural texture to
+original dry dirt impacts; the runtime builds one four-beat voice per actual
+racer, using the same distance-driven gait clock as the rendered legs. Playback
+follows each horse's speed, stereo position and finish. There is no fixed-size
+herd loop. Independent Hooves and Crowd levels are saved per browser.
+Source licenses apply to individual recordings;
 no endorsement is implied.
 Original source recordings are downloaded to temporary storage; no source files
 or original rider dialogue are overwritten.

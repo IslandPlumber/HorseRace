@@ -47,7 +47,7 @@ export function betSlip(round) {
     const pick = el("p", "slip-pick");
     pick.append(el("strong", "", riderName(round.bet.horse)), el("span", "", `${coins(round.bet.stake)} coins to win`));
     card.append(pick);
-  } else card.append(el("p", "slip-pick", settled ? "You did not place a bet this round." : "Optional win bet · place your pick before betting closes."));
+  } else card.append(el("p", "slip-pick", settled ? "You did not place a bet this round." : round.phase === "betting" ? "Optional win bet · place your pick before betting closes." : "No bet placed · betting is closed for this race."));
   if (settled) card.append(el("p", "slip-winner", `Winner: ${riderName(round.winner)}`));
   const metrics = el("dl", "slip-metrics");
   metrics.append(
@@ -59,7 +59,7 @@ export function betSlip(round) {
   );
   card.append(metrics);
   const total = el("div", "slip-total");
-  total.append(el("span", "", settled ? "Round total" : "Stake paid"), el("strong", "", `${signed(round.netCoins)} coins`));
+  total.append(el("span", "", settled ? "Round total" : round.bet ? "Stake paid" : "Race prize pending"), el("strong", "", !settled && !round.bet ? "Pending" : `${signed(round.netCoins)} coins`));
   card.append(total);
   const equation = settled
     ? `${round.bet ? `−${coins(round.bet.stake)} stake + ${coins(round.bet.payout)} bet return + ` : ""}${coins(round.prize)} finish prize = ${signed(round.netCoins)} coins`

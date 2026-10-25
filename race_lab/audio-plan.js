@@ -8,8 +8,8 @@ export function buildAudioPlan(race){
  for(let t=delay+.1;t<finish;t+=.1){const leader=sampleRace(race,t).standings[0];if(leader!==previous&&t>delay+.4)changes.push({time:Math.round(t*1000)/1000,leader});previous=leader;}
  return {delay,finish,changes,duration:race.duration};
 }
-export function crowdProfile(race,plan,time,shot='broadcast'){
- const t=clamp(time,0,race.duration),state=sampleRace(race,t),lead=state.runners.find(r=>r.id===state.standings[0]);
+export function crowdProfile(race,plan,time,shot='broadcast',sample){
+ const t=clamp(time,0,race.duration),state=sample??sampleRace(race,t),lead=state.runners.find(r=>r.id===state.standings[0]);
  const remaining=Math.max(0,race.track.length-lead.distance),home=race.track.startOffset??race.track.length*.2;
  let cheer=t<plan.delay?.015:.07;
  if(t>=plan.delay)cheer+=.24*Math.exp(-(((t-plan.delay-.6)/1.2)**2));

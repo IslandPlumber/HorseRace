@@ -1,4 +1,5 @@
 import { betSlip, roundFromRoom, historyList } from "./bet-slips.js";
+import { RoomBrowser } from "./room-browser.js";
 const $ = (id) => document.getElementById(id);
 const HORSES = {
   trump: "Donald Trump",
@@ -48,6 +49,8 @@ export class MultiplayerUI {
     this.polling = false;
     this.history = [];
     this.historyVisible = 6;
+    this.roomsData = { rooms: [], online: 0 };
+    this.lastRoomPoll = 0;
     $("multiplayer").innerHTML =
       `<div class="club-heading"><div><p class="eyebrow">STREAKCHAT RACING CLUB</p><h2>Your stable. Your race.</h2></div><span id="mp-connection" role="status">Connecting…</span></div>
   <p class="club-note">Free game coins only. Start with 1,000 coins, race with friends and save your stable for another day.</p>
@@ -55,12 +58,19 @@ export class MultiplayerUI {
   <form id="mp-auth" class="club-row"><label class="field">Username<input id="mp-username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required></label><label class="field">Password<input id="mp-password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><button class="button primary" type="submit" name="action" value="login">Sign in</button><button class="button" type="submit" name="action" value="register">Create account</button></form>
   <div id="mp-account" hidden><div class="club-row account-row"><strong id="mp-name"></strong><span id="mp-wallet"></span><button id="mp-logout" class="button quiet">Sign out</button></div>
   <div class="club-tabs" role="tablist" aria-label="Racing club"><button id="mp-tab-live" class="club-tab" role="tab" aria-controls="mp-live-panel" aria-selected="true">Live room & stable</button><button id="mp-tab-history" class="club-tab" role="tab" aria-controls="mp-history-panel" aria-selected="false" tabindex="-1">Bet slips & results <span id="mp-history-count">0</span></button></div>
-  <div id="mp-live-panel" class="club-grid" role="tabpanel" aria-labelledby="mp-tab-live"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Upgrades improve your chances. Every race still has an element of luck.</p><div id="mp-upgrades" class="club-row"></div><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bet loses. A winning bet returns 4× the stake, including the stake. Career points and wins track your own horse.</p></section>
-  <section class="club-box"><h3>Race with friends</h3><div id="mp-lobby"><button id="mp-create" class="button primary">Create room</button><form id="mp-join-form" class="club-row"><label class="field">Room code<input id="mp-code" maxlength="6" minlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="ABC123" required></label><button class="button" type="submit">Join room</button></form><button id="mp-find" class="button quiet">Find rooms</button><div id="mp-rooms"></div></div>
+  <div id="mp-live-panel" class="club-grid" role="tabpanel" aria-labelledby="mp-tab-live"><div class="club-sidebar"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Upgrades improve your chances. Every race still has an element of luck.</p><div id="mp-upgrades" class="club-row"></div><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bet loses. A winning bet returns 4× the stake, including the stake. Career points and wins track your own horse.</p></section><section id="mp-room-directory" class="club-box room-directory" aria-label="Other race rooms"></section></div>
+  <section class="club-box"><h3>Race with friends</h3><div id="mp-lobby"><button id="mp-create" class="button primary">Create room</button><form id="mp-join-form" class="club-row"><label class="field">Room code<input id="mp-code" maxlength="6" minlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="ABC123" required></label><button class="button" type="submit">Join room</button></form></div>
   <div id="mp-room" hidden><div class="club-row"><strong id="mp-room-name"></strong><button id="mp-leave" class="button quiet">Leave room</button></div><p id="mp-members" class="club-note"></p><strong id="mp-phase"></strong><p class="club-note">Seven starters; CPU racers fill empty places. The host opens each round.</p><button id="mp-start" class="button primary">Open betting · start next race</button>
   <section class="current-slip"><h4>This round · your bet slip</h4><form id="mp-bet-form" class="club-row" hidden><label class="field">Win pick<select id="mp-bet-horse"></select></label><label class="field">Stake<input id="mp-stake" type="number" min="10" max="500" step="1" value="50" required></label><button class="button primary" type="submit">Place bet</button><p id="mp-bet-preview" class="club-note"></p></form><div id="mp-bet-note" aria-live="polite"></div></section><div id="mp-finish-order" hidden><h4>Finishing order</h4><ol id="mp-results"></ol></div></div></section></div>
   <section id="mp-history-panel" class="club-history" role="tabpanel" aria-labelledby="mp-tab-history" hidden><div class="history-heading"><div><p class="eyebrow">SAVED WITH YOUR ACCOUNT</p><h3 id="mp-history-title">Bet slips & race results</h3><p class="club-note">Your bet result and your horse’s finish prize are separate. Round totals include both; upgrades are separate purchases.</p></div><div class="history-actions"><label class="field">Show<select id="mp-history-filter"><option value="all">All rounds</option><option value="won">Won bets</option><option value="lost">Lost bets</option><option value="pending">Pending bets</option><option value="none">No bet placed</option></select></label><button id="mp-refresh-slips" class="button quiet">Refresh slips</button></div></div><p id="mp-history-summary" class="club-note" role="status"></p><div id="mp-slips" class="slip-grid"></div><button id="mp-more-slips" class="button quiet" hidden>Show more rounds</button></section>
   <details class="club-ledger"><summary>Recent coin activity & race rules</summary><p class="club-note">One win bet per race, 10–500 coins. A winning bet returns 4× your stake including the stake. All bets are final. Finish prizes: 200 / 140 / 100 / 75 / 50 / 35 / 25 coins. Points: 12 / 9 / 7 / 5 / 3 / 2 / 1. Prizes are awarded when the round ends, even if you disconnect. Accounts stay on this server; use the same site to return.</p><button id="mp-history" class="button quiet">Refresh activity</button><ul id="mp-ledger"></ul></details></div>`;
+    this.roomBrowser = new RoomBrowser($("mp-room-directory"), {
+      refresh: () => void this.action(() => this.refreshRooms()),
+      join: (code, horse) => void this.action(async () => {
+        await this.api(`/api/rooms/${code}/join`, { horse });
+        await this.refreshRooms();
+      }),
+    });
     options($("mp-horse"));
     options($("mp-bet-horse"));
     const selectTab = (history) => {
@@ -125,23 +135,6 @@ export class MultiplayerUI {
         this.api(`/api/rooms/${$("mp-code").value.toUpperCase()}/join`, {}),
       );
     };
-    $("mp-find").onclick = () =>
-      void this.action(async () => {
-        const { rooms } = await this.api("/api/rooms");
-        $("mp-rooms").replaceChildren(
-          ...rooms.map((r) => {
-            const b = document.createElement("button");
-            b.className = "button quiet";
-            b.textContent = `${r.code} · ${r.players}/7`;
-            b.onclick = () =>
-              void this.action(() => this.api(`/api/rooms/${r.code}/join`, {}));
-            return b;
-          }),
-        );
-        if (!rooms.length)
-          $("mp-rooms").textContent =
-            "No rooms yet. Create one to invite friends.";
-      });
     $("mp-leave").onclick = () =>
       void this.action(() =>
         this.api(`/api/rooms/${this.room.code}/leave`, {}),
@@ -235,6 +228,8 @@ export class MultiplayerUI {
     this.loaded = null;
     this.history = [];
     this.historyKey = null;
+    this.roomsData = { rooms: [], online: 0 };
+    this.lastRoomPoll = 0;
     this.slipSignature = null;
     this.historyVisible = 6;
     $("mp-history-filter").value = "all";
@@ -275,6 +270,7 @@ export class MultiplayerUI {
           await this.refreshHistory();
           this.historyKey = key;
         }
+        if (Date.now() - this.lastRoomPoll > 5000) await this.refreshRooms();
       } else await this.api("/api/health");
       this.online = true;
       const r = this.room?.race;
@@ -299,6 +295,17 @@ export class MultiplayerUI {
     } finally {
       this.polling = false;
     }
+  }
+  async refreshRooms() {
+    if (!this.token || this.roomsPolling) return;
+    this.roomsPolling = true;
+    const token = this.token;
+    try {
+      const data = await this.api("/api/rooms");
+      if (this.token !== token) return;
+      this.roomsData = { rooms: data.rooms, online: data.online };
+      this.lastRoomPoll = Date.now();
+    } finally { this.roomsPolling = false; }
   }
   async refreshHistory() {
     if (!this.token) return;
@@ -334,6 +341,10 @@ export class MultiplayerUI {
       locked = Boolean(
         r && r.phase !== "results" && r.entrants.some((e) => e.userId === u.id),
       );
+    this.roomBrowser.render(this.roomsData, {
+      currentCode: this.room?.code, horse: u.horse, locked,
+      busy: this.busy, online: this.online,
+    });
     $("mp-name").textContent = u.username;
     $("mp-wallet").textContent =
       `${u.coins.toLocaleString()} coins · ${u.points} points`;

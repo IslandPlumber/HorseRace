@@ -12,7 +12,7 @@
   <main class="shell">
     <header class="masthead">
       <div><p class="eyebrow">STREAKCHAT / RACE LAB</p><h1>Race together. Build your stable.</h1><p class="intro">Choose your rider, join friends and race for coins and points. Sign in to save your stable, or try a practice race below.</p></div>
-      <span class="prototype">STREAKCHAT PARK</span>
+      <nav class="section-links" aria-label="Game sections"><a href="#multiplayer">Stable & rooms</a><a href="#race-preview">Watch race ↓</a></nav>
     </header>
     <section id="multiplayer" class="club-card" aria-label="Multiplayer racing club"></section>
     <section class="race-tools" aria-label="Race setup">
@@ -22,12 +22,12 @@
       <div class="file-tools"><button id="download" class="button quiet" disabled>Save race JSON</button><label class="button quiet file-label">Load JSON<input id="import-file" type="file" accept=".json,application/json"></label></div>
     </section>
     <div class="workbench">
-      <section class="stage-card" aria-label="Race preview">
+      <section id="race-preview" class="stage-card" aria-label="Race preview">
         <div class="stage-heading"><div><p class="eyebrow">PREPARED RACE</p><h2 id="race-title">Loading the cast…</h2></div><div class="clock"><strong id="elapsed">0.0</strong><span id="duration"> / — s</span></div></div>
         <div class="camera-tools"><label>Camera <select id="camera-mode"><option value="auto">Auto director</option><option value="broadcast">Broadcast</option><option value="rail">Trackside</option><option value="chase">Chase</option><option value="aerial">Whole course</option></select></label><button id="next-camera" class="button quiet">Switch view</button></div>
         <div class="viewport" id="viewport"><canvas id="course-map" width="200" height="120" aria-label="Course map and field positions"></canvas><div id="gate-count" hidden></div><div class="race-hud"><strong id="section-name">AT THE GATES</strong><span id="distance-left"></span><span id="camera-label">GATE</span></div><div id="loading" class="loading" role="status">Loading reusable rider models…</div><div id="caption" class="caption" aria-live="polite" hidden></div><div class="stage-badge" id="stage-badge">Seven reusable racers</div></div>
         <div class="transport"><button id="play" class="button primary" disabled>Play race</button><button id="restart" class="button quiet" disabled>Restart</button><label class="timeline"><span class="sr-only">Race timeline</span><input id="timeline" type="range" min="0" max="12" value="0" step="0.01" disabled></label><button id="speed" class="button quiet speed" disabled aria-label="Playback speed">1×</button></div>
-        <div class="audio-tools" aria-label="Race sound"><button id="sound-toggle" class="button quiet" aria-pressed="false">Enable sound</button><label>Race volume <input id="sound-volume" type="range" min="0" max="100" value="65" aria-label="Sound volume"></label><label>Crowd <input id="crowd-volume" type="range" min="0" max="100" value="30" aria-label="Crowd volume"></label><span id="sound-status">Tap Enable sound once. Sound then follows the race.</span></div>
+        <div class="audio-tools" aria-label="Race sound"><button id="sound-toggle" class="button quiet" aria-pressed="false">Enable sound</button><label>Race volume <input id="sound-volume" type="range" min="0" max="100" value="65" aria-label="Sound volume"></label><label>Hooves <input id="hoof-volume" type="range" min="0" max="100" value="75" aria-label="Hoofbeat volume"></label><label>Crowd <input id="crowd-volume" type="range" min="0" max="100" value="30" aria-label="Crowd volume"></label><span id="sound-status">Tap Enable sound once. Sound then follows the race.</span></div>
         <div class="under-stage"><span id="race-note">The full race is prepared before playback.</span><span>Four turns. One finish.</span></div>
       </section>
       <aside class="standings-card" aria-label="Race standings">

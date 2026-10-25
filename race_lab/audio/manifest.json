@@ -24,11 +24,11 @@
       "artist": "stephan",
       "license": "Public domain",
       "source_sha256": "6851e0c0e7f4953bcfcbd9f4c9b425ecfd2896e142332bc1607c214aef6cec68",
-      "sha256": "3ba656445de35cae6fb06b00549e93c43c3bde82f32fd89a32035e48733dbd4f",
+      "sha256": "aeed8d07cefdd0311720416eec391a7ec14508291d3a8c2979eb3b619819c26e",
       "bytes": 94220,
       "duration_seconds": 7.75,
-      "decoded_peak": 0.6785773634910583,
-      "decoded_rms": 0.04499780759215355,
+      "decoded_peak": 0.6187825202941895,
+      "decoded_rms": 0.07149641215801239,
       "adaptation": "0\u20138s excerpt; filtered, normalized, crossfaded loop"
     },
     {
@@ -64,5 +64,5 @@
   ],
   "starter_shot": "Original deterministic procedural sound design in race-audio.js; no recording or voice used.",
   "preparation": "prepare-racetrack-audio.py",
-  "mix": "Quiet outdoor audience; occasional applause; galloping foreground; no F1 air horns."
+  "mix": "Transient-suppressed outdoor audience; brief enveloped applause; individual distance-driven hoof voices derived from recorded galloping and dry dirt impacts; no fixed-size herd loop or F1 air horns."
 }

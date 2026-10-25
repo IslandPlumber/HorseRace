@@ -5,6 +5,8 @@ import {trackPoint,raceSection,circuitLength} from './track.js';
 import {createCourse} from './course-view.js';
 import {RaceAudio} from './race-audio.js';
 import {MultiplayerUI} from './multiplayer.js';
+import {gaitClock} from './gait.js';
+import {parkSky} from './park-scenery.js';
 let multiplayer=null;
 let needsRender=true;
 
@@ -12,11 +14,12 @@ const $ = (id) => document.getElementById(id);
 const names = { trump: 'Donald Trump', biden: 'Joe Biden', mcconnell: 'Mitch McConnell', bernie: 'Bernie Sanders', elon: 'Elon Musk', gordon: 'Gordon Ramsay', snoop: 'Snoop Dogg' };
 const embedded = globalThis.RACE_LAB_EMBEDDED || {};
 const raceAudio=new RaceAudio({embedded:embedded.audio,onStatus:(state)=>{soundControls();$('sound-status').textContent=state==='error'?'Sound unavailable — tap Enable sound to retry.':'Sound ready · bugle, starting shot, hoofbeats & quiet crowd';}});
-function soundControls(){const active=!raceAudio.muted&&raceAudio.ctx?.state==='running';$('sound-toggle').textContent=raceAudio.muted?'Sound off':active?'Sound on':'Enable sound';$('sound-toggle').setAttribute('aria-pressed',String(active));$('sound-volume').value=Math.round(raceAudio.masterVolume*100);$('crowd-volume').value=Math.round(raceAudio.crowdVolume*100);}
+function soundControls(){const active=!raceAudio.muted&&raceAudio.ctx?.state==='running';$('sound-toggle').textContent=raceAudio.muted?'Sound off':active?'Sound on':'Enable sound';$('sound-toggle').setAttribute('aria-pressed',String(active));$('sound-volume').value=Math.round(raceAudio.masterVolume*100);$('crowd-volume').value=Math.round(raceAudio.crowdVolume*100);$('hoof-volume').value=Math.round(raceAudio.hoofVolume*100);}
 function armSound(){return raceAudio.unlock().then(()=>{soundControls();if(playing&&!raceAudio.playing&&!raceAudio.muted)void raceAudio.start(race,time,speed);}).catch(()=>{$('sound-status').textContent='Sound unavailable — tap Enable sound to retry.';});}
 $('sound-toggle').addEventListener('click',()=>{if(!raceAudio.muted&&raceAudio.ctx?.state==='running'){raceAudio.setMuted(true);soundControls();}else{raceAudio.setMuted(false);void armSound();}});
 $('sound-volume').addEventListener('input',()=>{raceAudio.setVolume(Number($('sound-volume').value)/100);soundControls();});
 $('crowd-volume').addEventListener('input',()=>{raceAudio.setCrowdVolume(Number($('crowd-volume').value)/100);soundControls();});
+$('hoof-volume').addEventListener('input',()=>{raceAudio.setHoofVolume(Number($('hoof-volume').value)/100);soundControls();});
 // A real sign-in, room or betting gesture arms audio before asynchronous work.
 $('multiplayer').addEventListener('pointerdown',()=>{if(!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
 $('multiplayer').addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
@@ -50,12 +53,15 @@ sun.shadow.camera.far = 110;
 sun.shadow.normalBias = .03;
 scene.add(sun, sun.target);
 const grass = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshStandardMaterial({ color: '#4e7051', roughness: 1 }));
+grass.material.map=parkSky(scene);
 grass.rotation.x = -Math.PI / 2;
 grass.position.y = -.045;
 grass.receiveShadow = true;
 scene.add(grass);
 const trackRoot = new THREE.Group();
 const castRoot = new THREE.Group();
+const ownHalo=new THREE.Mesh(new THREE.RingGeometry(1.6,1.73,48),new THREE.MeshBasicMaterial({color:'#f2d18a',transparent:true,opacity:.7,side:THREE.DoubleSide,depthWrite:false}));ownHalo.rotation.x=-Math.PI/2;ownHalo.visible=false;scene.add(ownHalo);
+const ownMarker=textSprite('YOU');ownMarker.scale.set(3,.56,1);ownMarker.visible=false;scene.add(ownMarker);
 scene.add(trackRoot, castRoot);
 const loader = new GLTFLoader();
 const assetPromises = new Map();
@@ -353,7 +359,7 @@ function displayFrame(snapCamera = false) {
     // Restore the source pose before sampling: AnimationMixer may skip writing
     // an unchanged track, so billboard transforms must never feed back into it.
     if(actor.puppet)actor.puppet.quaternion.copy(actor.sourcePuppetPose);
-    if (actor.mixer) actor.mixer.setTime(Math.max(0,time-(race.startDelay??0)));
+    if (actor.mixer) actor.mixer.setTime(time<(race.startDelay??0)?0:gaitClock(race,race.cast.find(r=>r.id===runner.id),time));
     if(actor.puppet)actor.sourcePuppetPose.copy(actor.puppet.quaternion);
     else actor.model.position.y = actor.initialY + .018 * Math.sin(time * 16);
   }
@@ -395,7 +401,11 @@ function displayFrame(snapCamera = false) {
     const yaw=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),neutralAzimuth-azimuth);
     actor.puppet.quaternion.copy(parent.invert().multiply(yaw).multiply(neutralPuppet).multiply(deviation));
   }
-  course?.update(time);
+  course?.update(time,sample);
+  const ownHorse=multiplayer?.room?.race?.entrants.find(e=>e.userId===multiplayer?.user?.id)?.horse;
+  const ownRunner=multiplayer?.managed&&sample.runners.find(r=>r.id===ownHorse);
+  ownHalo.visible=ownMarker.visible=Boolean(ownRunner);
+  if(ownRunner){ownHalo.position.set(ownRunner.x,.055,ownRunner.z);ownMarker.position.set(ownRunner.x,6.2,ownRunner.z);}
   const delay=race.startDelay??0;
   $('gate-count').hidden=!(delay>0&&time<delay);
   $('gate-count').textContent=time<delay-3?'♫':String(Math.max(1,Math.ceil(delay-time)));
@@ -404,7 +414,8 @@ function displayFrame(snapCamera = false) {
   $('distance-left').textContent=`${Math.max(0,Math.round(race.track.length-lead.distance))} m to go`;
   $('camera-label').textContent=shot==='finish'?'HOME STRETCH':shot.toUpperCase();
   drawMap(sample);
-  raceAudio.sync(race,time,playing,speed,lastShot);
+  const audioView=sample.runners.map(r=>{const p=new THREE.Vector3(r.x,1,r.z).project(camera);return{id:r.id,pan:THREE.MathUtils.clamp(p.x,-.9,.9),distance:Math.hypot(camera.position.x-r.x,camera.position.z-r.z),finished:r.finished};});
+  raceAudio.sync(race,time,playing,speed,lastShot,audioView,sample);
   $('elapsed').textContent = time.toFixed(1);
   $('timeline').value = time;
   const text = sample.events.map((event) => event.text || '').filter(Boolean).join(' · ');
@@ -417,13 +428,14 @@ function displayFrame(snapCamera = false) {
 
 function drawMap(sample){
  const c=$('course-map'),ctx=c.getContext('2d'),w=c.width,h=c.height;
- ctx.clearRect(0,0,w,h);ctx.fillStyle='#10271fe8';ctx.fillRect(0,0,w,h);
+ ctx.clearRect(0,0,w,h);ctx.fillStyle='#10271f';ctx.fillRect(0,0,w,h);
  const track=race.track;const points=Array.from({length:241},(_,i)=>trackPoint(track,i/240*track.length));
  const xmin=Math.min(...points.map(p=>p.x)),xmax=Math.max(...points.map(p=>p.x)),zmin=Math.min(...points.map(p=>p.z)),zmax=Math.max(...points.map(p=>p.z));
  const scale=Math.min((w-24)/Math.max(1,xmax-xmin),(h-24)/Math.max(1,zmax-zmin));
  const xy=p=>[(p.x-(xmin+xmax)/2)*scale+w/2,(p.z-(zmin+zmax)/2)*scale+h/2];
  ctx.strokeStyle='#ad9871';ctx.lineWidth=7;ctx.beginPath();points.forEach((p,i)=>{const [x,y]=xy(p);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();
- for(const runner of sample.runners){const [x,y]=xy(runner);ctx.beginPath();ctx.arc(x,y,runner.rank===1?3.5:2.5,0,Math.PI*2);ctx.fillStyle=runner.rank===1?'#ffe19a':'#f1f4df';ctx.fill();}
+ const mine=multiplayer?.room?.race?.entrants.find(e=>e.userId===multiplayer?.user?.id)?.horse;
+ for(const runner of sample.runners){const [x,y]=xy(runner),own=runner.id===mine;ctx.beginPath();ctx.arc(x,y,own?4:runner.rank===1?3.5:2.5,0,Math.PI*2);ctx.fillStyle=own?'#b9e2b1':runner.rank===1?'#ffe19a':'#f1f4df';ctx.fill();if(own){ctx.strokeStyle='#ffffff';ctx.lineWidth=1;ctx.stroke();}}
 }
 $('camera-mode').addEventListener('change',()=>{cameraMode=$('camera-mode').value;if(race)displayFrame(true);});
 $('next-camera').addEventListener('click',()=>{const modes=['auto','broadcast','rail','chase','aerial'];cameraMode=modes[(modes.indexOf(cameraMode)+1)%modes.length];$('camera-mode').value=cameraMode;if(race)displayFrame(true);});
@@ -500,6 +512,7 @@ window.raceLab = {
   get time() { return time; },
   get ready() { return Boolean(race && !loading); },
   get actorCount() { return visibleActors.length; },
+  get renderDiagnostics(){return {drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,ownMarker:ownMarker.visible};},
   get assetCount() { return assetPromises.size; },
   get textureDiagnostics(){return visibleActors.map(actor=>{const textures=new Map();actor.model.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.map)textures.set(m.map.uuid,{name:m.name,width:m.map.image?.width??0,height:m.map.image?.height??0});});return {id:actor.id,textures:[...textures.values()]};});},
   get viewDiagnostics(){return visibleActors.map(actor=>{let head;actor.model.traverse(o=>{if(/head[ _]hinge/.test(o.name))head=o;});actor.group.updateMatrixWorld(true);const v=(head??actor.puppet??actor.group).getWorldPosition(new THREE.Vector3());const projected=v.clone().project(camera);return {id:actor.id,headHeight:v.y,screen:projected.toArray(),puppet:actor.puppet?.quaternion.toArray()};});},

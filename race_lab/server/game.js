@@ -36,6 +36,8 @@ export class Game {
     this.clock = clock;
     this.bettingMs = bettingMs;
     this.duration = duration;
+    this.presence = new Map();
+    this.startedAt = this.clock();
     this.db = new DatabaseSync(file);
     this.db
       .exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
@@ -79,6 +81,7 @@ export class Game {
     return u;
   }
   session(id) {
+    this.touch(id);
     const token = randomBytes(32).toString("base64url");
     this.run("DELETE FROM sessions WHERE expires<?", this.clock());
     this.run(
@@ -169,6 +172,7 @@ export class Game {
       this.clock(),
     );
     requireThat(s, "Your session expired. Sign in again.", 401);
+    this.touch(s.user_id);
     return s.user_id;
   }
   logout(token) {
@@ -250,10 +254,33 @@ export class Game {
       return this.profile(id);
     });
   }
+  touch(id) {
+    const now = this.clock();
+    this.presence.set(id, now);
+    if (this.presence.size > 10000)
+      for (const [key, last] of this.presence) if (last < now - 30000) this.presence.delete(key);
+  }
+  onlineCount() {
+    return [...this.presence.values()].filter((last) => last >= this.clock() - 30000).length;
+  }
   rooms() {
     return this.all(
-      "SELECT r.code, COUNT(m.user_id) AS players FROM rooms r JOIN members m ON m.code=r.code GROUP BY r.code ORDER BY r.created DESC LIMIT 30",
-    );
+      "SELECT r.code, COUNT(m.user_id) AS players FROM rooms r JOIN members m ON m.code=r.code GROUP BY r.code ORDER BY r.created DESC",
+    ).map((room) => {
+      const people = this.all("SELECT u.id,u.username,u.horse FROM members m JOIN users u ON u.id=m.user_id WHERE m.code=?", room.code);
+      const members = people.map((p) => ({ username: p.username, horse: p.horse, online: (this.presence.get(p.id) ?? -Infinity) >= this.clock() - 30000 }));
+      return { ...room, online: members.filter((p) => p.online).length, members,
+        phase: this.latest(room.code)?.phase ?? "waiting", capacity: 7 };
+    }).sort((a,b) => b.online-a.online || b.players-a.players).slice(0,30);
+  }
+  transferAwayHost(code) {
+    // A restart gets a grace period so the first reconnect cannot steal hosting.
+    if (this.clock() - this.startedAt < 30000) return;
+    const room = this.one("SELECT host_id FROM rooms WHERE code=?", code);
+    if (!room || (this.presence.get(room.host_id) ?? -Infinity) >= this.clock()-30000) return;
+    const next = this.all("SELECT user_id FROM members WHERE code=? ORDER BY rowid", code)
+      .find((m) => (this.presence.get(m.user_id) ?? -Infinity) >= this.clock()-30000);
+    if (next) this.run("UPDATE rooms SET host_id=? WHERE code=? AND host_id=?", next.user_id, code, room.host_id);
   }
   leaveInside(id) {
     requireThat(!this.active(id), "You can leave after the current race.");
@@ -287,7 +314,7 @@ export class Game {
       return code;
     });
   }
-  join(id, code) {
+  join(id, code, horse) {
     requireThat(typeof code === "string", "Enter a room code.");
     code = code.toUpperCase();
     return this.transaction(() => {
@@ -302,15 +329,18 @@ export class Game {
         "This room is full.",
       );
       const u = this.profile(id);
+      const selected = horse ?? u.horse;
+      requireThat(ACTOR_IDS.includes(selected), "Choose an available horse.");
       requireThat(
         !this.one(
           "SELECT u.id FROM members m JOIN users u ON u.id=m.user_id WHERE m.code=? AND u.horse=?",
           code,
-          u.horse,
+          selected,
         ),
         "That horse is taken in this room. Choose another horse first.",
       );
       this.leaveInside(id);
+      if (selected !== u.horse) this.run("UPDATE users SET horse=? WHERE id=?", selected, id);
       this.run("INSERT INTO members VALUES(?,?)", id, code);
       if (
         this.one("SELECT COUNT(*) AS n FROM members WHERE code=?", code).n === 1
@@ -491,6 +521,7 @@ export class Game {
   }
   room(id, code) {
     requireThat(this.membership(id) === code, "Join this room first.", 403);
+    this.transferAwayHost(code);
     const room = this.one("SELECT * FROM rooms WHERE code=?", code);
     requireThat(room, "Room not found.", 404);
     const members = this.all(
