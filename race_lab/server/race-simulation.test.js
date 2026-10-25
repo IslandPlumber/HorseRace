@@ -15,7 +15,7 @@ test('skill simulation is deterministic, immutable and has real timeline-derived
   assert.deepEqual(simulateRace('same', options), a);
   assert.deepEqual(options, before);
   assert.notDeepEqual(run('other', {}), a);
-  assert.equal(a.simulation.model, 'skills-v1');
+  assert.equal(a.simulation.model, 'skills-v2');
   for (let seed = 0; seed < 80; seed++) {
     const race = run(seed, {speed: seed % 6, stamina: (seed + 1) % 6, focus: (seed + 2) % 6});
     assert.equal(validateRace(race), race);
@@ -64,14 +64,26 @@ test('focus improves the break and reduces actual losses of rhythm with identica
 });
 
 test('trained horses retain an advantage without guaranteed wins; novice and CPU horses can win', () => {
-  let wins = 0, baselineWins = 0, place = 0, baselinePlace = 0;
-  for (let i = 0; i < 400; i++) {
+  let wins = 0, currentWins = 0, baselineWins = 0, place = 0, baselinePlace = 0;
+  for (let i = 0; i < 1000; i++) {
     const a = run(`balance-${i}`, {}), b = run(`balance-${i}`, {speed: 5, stamina: 5, focus: 5});
+    const current = run(`balance-${i}`, {speed: 4, stamina: 2, focus: 1});
+    currentWins += current.outcome[0] === 'elon';
     baselineWins += a.outcome[0] === 'elon'; wins += b.outcome[0] === 'elon';
     baselinePlace += a.outcome.indexOf('elon'); place += b.outcome.indexOf('elon');
   }
   assert.ok(wins > baselineWins && place < baselinePlace);
-  assert.ok(wins / 400 > 0.2 && wins / 400 < 0.4, 'maximum training remains a modest favorite in this reproducible sample');
+  assert.ok(currentWins / 1000 >= 0.64 && currentWins / 1000 <= 0.78, 'the existing 4/2/1 build should usually beat untrained rivals');
+  assert.ok(wins / 1000 >= 0.83 && wins / 1000 <= 0.93, 'maximum training dominates untrained rivals while leaving room for upsets');
+});
+
+test('equally trained racers remain competitive regardless of their character', () => {
+  const wins = Object.fromEntries(ACTOR_IDS.map(id => [id, 0]));
+  for (let i=0;i<700;i++) {
+    const race=simulateRace(`equal-${i}`,{entrants:ACTOR_IDS.map(horse=>({horse,speed:5,stamina:5,focus:5}))});
+    wins[race.outcome[0]]++;
+  }
+  for(const count of Object.values(wins))assert.ok(count/700 > .08 && count/700 < .21);
 });
 
 test('dense simulation gait and hoof rates integrate to the same distance and finish', () => {

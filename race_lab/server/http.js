@@ -149,7 +149,7 @@ export function createServer(
                 requireMembership();
                 game.leave(id);
               } else if (action === "start") game.start(id, code);
-              else game.bet(id, code, body.horse, body.stake);
+              else game.bet(id, code, body.horse, body.stake, body.kind);
               result = { code };
             } else throw new GameError("Not found.", 404);
             function requireMembership() {

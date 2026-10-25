@@ -297,7 +297,7 @@ test("a full room settles a guaranteed winning bet and every losing bet correctl
     assert.equal(g.profile(p.id).coins, 900 + e.prize + payout);
     assert.equal(g.profile(p.id).points, e.points);
   }
-  assert.equal(g.all("SELECT * FROM bets WHERE payout>0").length, 1);
+  assert.equal(g.raceBets(r.id).filter(b => b.payout > 0).length, 1);
 });
 
 test("saved slips separate winning bets, losing bets and finish prizes across rooms and restarts", (t) => {

@@ -8,6 +8,7 @@ import {
 } from "node:crypto";
 import { ACTOR_IDS } from "../race-core.js";
 import { simulateRace } from "./race-simulation.js";
+import { BET_TYPES, ticketReturn } from "../betting.js";
 export const RULES = {
   startingCoins: 1000,
   prizes: [200, 140, 100, 75, 50, 35, 25],
@@ -15,6 +16,7 @@ export const RULES = {
   minBet: 10,
   maxBet: 500,
   betReturn: 4,
+  betTypes: BET_TYPES,
   upgrades: { speed: 120, stamina: 100, focus: 90 },
   maxLevel: 5,
 };
@@ -31,7 +33,7 @@ const hashToken = (t) => createHash("sha256").update(t).digest("hex");
 export class Game {
   constructor(
     file,
-    { clock = Date.now, bettingMs = 20000, duration = 64 } = {},
+    { clock = Date.now, bettingMs = 30000, duration = 64 } = {},
   ) {
     this.clock = clock;
     this.bettingMs = bettingMs;
@@ -47,7 +49,8 @@ export class Game {
    CREATE TABLE IF NOT EXISTS members(user_id TEXT PRIMARY KEY REFERENCES users(id), code TEXT NOT NULL REFERENCES rooms(code));
    CREATE TABLE IF NOT EXISTS races(id TEXT PRIMARY KEY, code TEXT NOT NULL REFERENCES rooms(code), number INTEGER NOT NULL, phase TEXT NOT NULL, closes INTEGER NOT NULL, starts INTEGER NOT NULL, ends INTEGER NOT NULL, entrants TEXT NOT NULL, definition TEXT, results TEXT);
    CREATE TABLE IF NOT EXISTS bets(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), race_id TEXT NOT NULL REFERENCES races(id), horse TEXT NOT NULL, stake INTEGER NOT NULL, payout INTEGER, UNIQUE(user_id,race_id));
-   CREATE TABLE IF NOT EXISTS ledger(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), delta INTEGER NOT NULL, reason TEXT NOT NULL, race_id TEXT, created INTEGER NOT NULL);`);
+   CREATE TABLE IF NOT EXISTS ledger(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), delta INTEGER NOT NULL, reason TEXT NOT NULL, race_id TEXT, created INTEGER NOT NULL);
+   CREATE TABLE IF NOT EXISTS race_bets(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), race_id TEXT NOT NULL REFERENCES races(id), horse TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('win','place','show')), stake INTEGER NOT NULL CHECK(typeof(stake)='integer' AND stake BETWEEN 10 AND 500), return_units INTEGER NOT NULL CHECK(return_units>=100), payout INTEGER CHECK(payout IS NULL OR (typeof(payout)='integer' AND payout>=0)), UNIQUE(user_id,race_id,kind));`);
   }
   one(sql, ...p) {
     return this.db.prepare(sql).get(...p);
@@ -395,7 +398,22 @@ export class Game {
       return raceId;
     });
   }
-  bet(id, code, horse, stake) {
+  raceBets(raceId, userId) {
+    const clause = userId === undefined ? "" : " AND user_id=?";
+    const args = userId === undefined ? [raceId] : [raceId, userId];
+    return this.all(`SELECT id,user_id,horse,kind,stake,return_units,payout,0 AS legacy FROM race_bets WHERE race_id=?${clause}
+      UNION ALL SELECT id,user_id,horse,'win' AS kind,stake,400 AS return_units,payout,1 AS legacy FROM bets WHERE race_id=?${clause}`,
+      ...args, ...args).sort((a,b) => Object.keys(BET_TYPES).indexOf(a.kind)-Object.keys(BET_TYPES).indexOf(b.kind));
+  }
+  ticketViews(raceId, userId, results) {
+    return this.raceBets(raceId, userId).map((b) => ({
+      kind: b.kind, horse: b.horse, stake: b.stake, returnUnits: b.return_units,
+      payout: b.payout, net: b.payout === null ? null : b.payout - b.stake,
+      status: b.payout === null ? "pending" : b.payout > 0 ? "won" : "lost",
+      place: results?.find((r) => r.horse === b.horse)?.place ?? null,
+    }));
+  }
+  bet(id, code, horse, stake, kind = "win") {
     return this.transaction(() => {
       requireThat(this.membership(id) === code, "Join this room first.", 403);
       const r = this.latest(code);
@@ -404,6 +422,7 @@ export class Game {
         "Betting has closed.",
       );
       requireThat(ACTOR_IDS.includes(horse), "Choose a horse.");
+      requireThat(typeof kind === "string" && Object.hasOwn(BET_TYPES, kind), "Choose Win, Place or Show.");
       requireThat(
         Number.isInteger(stake) &&
           stake >= RULES.minBet &&
@@ -411,23 +430,20 @@ export class Game {
         `Bet ${RULES.minBet}–${RULES.maxBet} whole coins.`,
       );
       requireThat(
-        !this.one(
-          "SELECT id FROM bets WHERE user_id=? AND race_id=?",
-          id,
-          r.id,
-        ),
-        "You already placed your bet.",
+        !this.raceBets(r.id, id).some((b) => b.kind === kind),
+        `You already placed your ${kind} bet.`,
         409,
       );
-      this.credit(id, -stake, "Win bet", r.id);
+      this.credit(id, -stake, `${BET_TYPES[kind].label} bet`, r.id);
       this.run(
-        "INSERT INTO bets VALUES(?,?,?,?,?,?)",
+        "INSERT INTO race_bets(id,user_id,race_id,horse,kind,stake,return_units,payout) VALUES(?,?,?,?,?,?,?,NULL)",
         randomUUID(),
         id,
         r.id,
         horse,
+        kind,
         stake,
-        null,
+        BET_TYPES[kind].units,
       );
     });
   }
@@ -472,14 +488,12 @@ export class Game {
           e.userId,
         );
     }
-    for (const b of this.all(
-      "SELECT * FROM bets WHERE race_id=? AND payout IS NULL",
-      r.id,
-    )) {
-      const payout = b.horse === def.outcome[0] ? b.stake * RULES.betReturn : 0;
+    for (const b of this.raceBets(r.id).filter((b) => b.payout === null)) {
+      const place = def.outcome.indexOf(b.horse) + 1;
+      const payout = place > 0 && place <= BET_TYPES[b.kind].places ? ticketReturn(b.stake, b.return_units) : 0;
       if (payout)
-        this.credit(b.user_id, payout, "Winning bet", r.id, `bet:${b.id}`);
-      this.run("UPDATE bets SET payout=? WHERE id=?", payout, b.id);
+        this.credit(b.user_id, payout, b.legacy ? "Winning bet" : `${BET_TYPES[b.kind].label} bet return`, r.id, `bet:${b.id}`);
+      this.run(b.legacy ? "UPDATE bets SET payout=? WHERE id=?" : "UPDATE race_bets SET payout=? WHERE id=?", payout, b.id);
     }
     this.run(
       "UPDATE races SET phase='results',results=? WHERE id=?",
@@ -507,7 +521,8 @@ export class Game {
         "SELECT u.id,u.username,u.horse,u.speed,u.stamina,u.focus FROM members m JOIN users u ON u.id=m.user_id WHERE m.code=?",
         code,
       ),
-      r = this.latest(code);
+      r = this.latest(code),
+      tickets = r ? this.ticketViews(r.id, id, r.results ? JSON.parse(r.results) : null) : [];
     return {
       code,
       hostId: room.host_id,
@@ -523,12 +538,8 @@ export class Game {
             entrants: JSON.parse(r.entrants),
             definition: r.phase === "betting" ? null : JSON.parse(r.definition),
             results: r.results ? JSON.parse(r.results) : null,
-            bet:
-              this.one(
-                "SELECT horse,stake,payout FROM bets WHERE user_id=? AND race_id=?",
-                id,
-                r.id,
-              ) ?? null,
+            bets: tickets,
+            bet: tickets[0] ? { horse: tickets[0].horse, stake: tickets[0].stake, payout: tickets[0].payout } : null,
           }
         : null,
     };
@@ -545,17 +556,18 @@ export class Game {
     // Include the current round even before an optional bet has been placed.
     return this.all(
       `SELECT r.id,r.code,r.number,r.phase,r.starts,r.ends,r.entrants,r.results,
-        b.horse AS bet_horse,b.stake,b.payout,
         (SELECT COALESCE(SUM(l.delta),0) FROM ledger l WHERE l.user_id=? AND l.race_id=r.id) AS net_coins
-       FROM races r LEFT JOIN bets b ON b.race_id=r.id AND b.user_id=?
+       FROM races r
        WHERE r.id IN (SELECT race_id FROM ledger WHERE user_id=? AND race_id IS NOT NULL)
           OR r.id=(SELECT id FROM races WHERE code=(SELECT code FROM members WHERE user_id=?) ORDER BY closes DESC LIMIT 1)
        ORDER BY r.closes DESC,r.rowid DESC LIMIT 50`,
-      id, id, id, id,
+      id, id, id,
     ).flatMap((r) => {
       const entrant = JSON.parse(r.entrants).find((e) => e.userId === id);
-      if (!entrant && !r.bet_horse) return [];
       const results = r.results ? JSON.parse(r.results) : [];
+      const bets = this.ticketViews(r.id, id, results);
+      if (!entrant && !bets.length) return [];
+      const first = bets[0];
       const finish = results.find((e) => e.userId === id);
       return [{
         id: r.id,
@@ -569,12 +581,13 @@ export class Game {
         prize: finish?.prize ?? 0,
         points: finish?.points ?? 0,
         winner: results[0]?.horse ?? null,
-        bet: r.bet_horse ? {
-          horse: r.bet_horse,
-          stake: r.stake,
-          payout: r.payout,
-          net: r.payout === null ? null : r.payout - r.stake,
-          status: r.payout === null ? "pending" : r.payout > 0 ? "won" : "lost",
+        bets,
+        bet: first ? {
+          horse: first.horse,
+          stake: first.stake,
+          payout: first.payout,
+          net: first.net,
+          status: first.status,
         } : null,
         netCoins: r.net_coins,
       }];

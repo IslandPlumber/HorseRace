@@ -59,8 +59,9 @@ and horse textures through those fetches; blocking them produces white models.
 in a real browser, including phone widths. `BROWSER_CHANNEL` selects an installed
 Playwright browser channel (defaults to Chrome).
 
-Saved slips are derived from existing race snapshots, bets and coin ledger rows;
-no database migration is needed. The authenticated `/api/history` endpoint
+Saved slips are derived from race snapshots, tickets and coin ledger rows.
+Win/Place/Show adds a `race_bets` table without altering or rebuilding existing
+tables; old Win bets stay in `bets` and retain their 4× terms. The authenticated `/api/history` endpoint
 returns only that player's latest 50 rounds, including rounds without a bet.
 Bet returns include the stake; bet profit is return minus stake; round coin
 change is minus stake plus bet return plus the player's finish prize. Upgrades
@@ -95,8 +96,11 @@ older saved definitions retain their original outcomes and payouts. Round end
 follows the final crossing, within the original maximum time slot. See
 `../TRAINING.md` for the model and balance audit. `npm run test:training` verifies
 the real upgrade interface and shared motion on desktop and phone. Prices,
-existing levels, balances, prizes and betting rules are unchanged; no migration
-is required. Include `server/race-simulation.js` in every server release.
+existing levels, balances and prizes are unchanged. Win/Place/Show tickets use
+the additive store described in `../BETTING.md`; include `betting.js` and
+`server/race-simulation.js` in every server release. Before rolling back to an
+older release that predates typed tickets, settle active typed rounds with
+compatible code first. Do not restore an older database to roll back code.
 
 The SQLite database stores scrypt password hashes, hashed 30-day login sessions,
 horses, upgrades, coins, points, rooms, bets and a coin ledger. Passwords are not
@@ -115,4 +119,5 @@ Before public testing, verify registration/sign-in from two browsers, a shared
 room, betting cutoff, synchronized race playback, finish awards, sign-in on a new
 device and progress after a service restart. Also verify the existing Pick'em
 site and its service are still healthy. Keep the previous release available for
-rollback, preserving the database. No database migration is needed for version 1.
+rollback, preserving the database. Retain the additive ticket store and all
+older betting records across release changes.

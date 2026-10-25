@@ -3,7 +3,7 @@ import { makeCircuit, trackPoint } from "../track.js";
 
 // A versioned, server-owned simulation. All clients receive the same persisted
 // distance timeline; finish order is measured from its crossings, never drawn.
-export const SIMULATION_VERSION = "skills-v1";
+export const SIMULATION_VERSION = "skills-v2";
 const STEP = 0.125;
 const WINDOW = 68;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -68,12 +68,12 @@ function runHorse(seed, entrant, lane, track) {
   for (const section of [0.23, 0.52, 0.76]) {
     const chance = random(), at = section + (random() - 0.5) * 0.06;
     const duration = 0.4 + random() * 0.4;
-    if (chance < 0.34 * (1 - skills.focus * 0.08))
-      incidents.push({ fraction: at, duration: duration * (1 - skills.focus * 0.035) });
+    if (chance < 0.34 * (1 - skills.focus * 0.14))
+      incidents.push({ fraction: at, duration: duration * (1 - skills.focus * 0.08) });
   }
-  const reaction = 0.14 + reactionRoll * 0.7 * (1 - skills.focus * 0.06);
-  const cruise = track.length / 48 * form * (1 + skills.speed * 0.003);
-  const acceleration = track.length / 82 * (1 + skills.speed * 0.035);
+  const reaction = 0.14 + reactionRoll * 0.7 * (1 - skills.focus * 0.11);
+  const cruise = track.length / 48 * form * (1 + skills.speed * 0.03);
+  const acceleration = track.length / 82 * (1 + skills.speed * 0.1);
   const points = [{ time: 0, distance: 0, boundary: true },
     { time: reaction, distance: 0, boundary: true }];
   let time = reaction, distance = 0, speed = 0, finish;
@@ -81,8 +81,8 @@ function runHorse(seed, entrant, lane, track) {
     const fraction = distance / track.length;
     const turn = trackPoint(track, distance).turn;
     const fatigue = Math.pow(clamp((fraction - 0.42) / 0.58, 0, 1), 1.25) *
-      (0.14 - skills.stamina * 0.008);
-    const turnLoss = turn ? corners[turn - 1] * (1 - skills.focus * 0.06) : 0;
+      (0.14 - skills.stamina * 0.02);
+    const turnLoss = turn ? corners[turn - 1] * (1 - skills.focus * 0.13) : 0;
     let rhythmLoss = false, boundary = false;
     for (const incident of incidents) {
       if (incident.start === undefined && fraction >= incident.fraction) {
