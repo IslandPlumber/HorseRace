@@ -1,0 +1,22 @@
+[Unit]
+Description=StreakChat HorseRace multiplayer game
+After=network.target
+
+[Service]
+Type=simple
+User=horserace
+Group=horserace
+WorkingDirectory=/home/horserace/app
+EnvironmentFile=/home/horserace/game.env
+ExecStart=/home/horserace/runtime/bin/node /home/horserace/app/server/start.js
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/horserace/data
+
+[Install]
+WantedBy=multi-user.target

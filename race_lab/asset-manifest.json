@@ -1,0 +1,416 @@
+{
+  "source": "../cutout_v8/streakchat_seven_riders.blend",
+  "source_sha256": "211810fb1346508fd482bdd56e30ef9a6c0a319f06ed3413359a23b88f2b3e54",
+  "source_unchanged": true,
+  "blender_version": "5.2.3 LTS",
+  "coordinates": "glTF +Y up, horse forward +X; root at track distance/lane origin",
+  "clip": "gait: four-second reusable action; scene-specific hat throw, duck and speech stripped",
+  "credits": [
+    "../cutout_v8/CREDITS.md",
+    "../cutout_v7/CREDITS.md",
+    "../cutout_v6/CREDITS.md",
+    "../cutout_v5/CREDITS.md"
+  ],
+  "actors": [
+    {
+      "id": "trump",
+      "name": "Trump",
+      "file": "assets/trump.glb",
+      "bytes": 3003844,
+      "sha256": "08572bb32e0a698eb98671f9e0c22bc9f57cfc22f51b887e07dd9f0c97b6b171",
+      "meshes": 33,
+      "nodes": 60,
+      "skins": 1,
+      "embedded_images": 6,
+      "animations": [
+        {
+          "name": "gait",
+          "duration_seconds": 4,
+          "channels": 57
+        }
+      ],
+      "blender_bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.9900000095367432,
+          1.381541132926941
+        ],
+        [
+          -0.03999999910593033,
+          4.753188610076904
+        ]
+      ],
+      "bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.03999999910593033,
+          4.753188610076904
+        ],
+        [
+          -1.381541132926941,
+          0.9900000095367432
+        ]
+      ],
+      "quiet_puppet": true,
+      "root_motion": "None; race definition controls progress and lane",
+      "gltf_validation": {
+        "validator": "Khronos glTF Validator 2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 5,
+        "warning_codes": [
+          "NODE_SKINNED_MESH_NON_ROOT"
+        ]
+      }
+    },
+    {
+      "id": "biden",
+      "name": "Biden",
+      "file": "assets/biden.glb",
+      "bytes": 2879468,
+      "sha256": "815bd108a78ed11f8f028a0ffc93e5d84302b9e3ee516b1d8e059ade22354204",
+      "meshes": 28,
+      "nodes": 52,
+      "skins": 1,
+      "embedded_images": 6,
+      "animations": [
+        {
+          "name": "gait",
+          "duration_seconds": 4,
+          "channels": 57
+        }
+      ],
+      "blender_bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.9900000095367432,
+          1.3060874938964844
+        ],
+        [
+          -0.03999999910593033,
+          4.486775875091553
+        ]
+      ],
+      "bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.03999999910593033,
+          4.486775875091553
+        ],
+        [
+          -1.3060874938964844,
+          0.9900000095367432
+        ]
+      ],
+      "quiet_puppet": true,
+      "root_motion": "None; race definition controls progress and lane",
+      "gltf_validation": {
+        "validator": "Khronos glTF Validator 2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 5,
+        "warning_codes": [
+          "NODE_SKINNED_MESH_NON_ROOT"
+        ]
+      }
+    },
+    {
+      "id": "mcconnell",
+      "name": "McConnell",
+      "file": "assets/mcconnell.glb",
+      "bytes": 2889508,
+      "sha256": "5956a5099688f4f6993b2c8fe4f4b5a3a145a6ee95c9c67dc5b1c2349bc54a9d",
+      "meshes": 26,
+      "nodes": 50,
+      "skins": 1,
+      "embedded_images": 6,
+      "animations": [
+        {
+          "name": "gait",
+          "duration_seconds": 4,
+          "channels": 57
+        }
+      ],
+      "blender_bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.9900000095367432,
+          1.3987370729446411
+        ],
+        [
+          -0.03999999910593033,
+          4.531416893005371
+        ]
+      ],
+      "bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.03999999910593033,
+          4.531416893005371
+        ],
+        [
+          -1.3987370729446411,
+          0.9900000095367432
+        ]
+      ],
+      "quiet_puppet": false,
+      "root_motion": "None; race definition controls progress and lane",
+      "gltf_validation": {
+        "validator": "Khronos glTF Validator 2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 5,
+        "warning_codes": [
+          "NODE_SKINNED_MESH_NON_ROOT"
+        ]
+      }
+    },
+    {
+      "id": "bernie",
+      "name": "Bernie",
+      "file": "assets/bernie.glb",
+      "bytes": 2893312,
+      "sha256": "341a4a1ba3b77763b3a9934d8b0d710b7e76e3f8b41c0edfa9cededc2ea3bccb",
+      "meshes": 18,
+      "nodes": 41,
+      "skins": 1,
+      "embedded_images": 6,
+      "animations": [
+        {
+          "name": "gait",
+          "duration_seconds": 4,
+          "channels": 57
+        }
+      ],
+      "blender_bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.6880000233650208,
+          1.3425710201263428
+        ],
+        [
+          -0.03999999910593033,
+          4.506483554840088
+        ]
+      ],
+      "bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.03999999910593033,
+          4.506483554840088
+        ],
+        [
+          -1.3425710201263428,
+          0.6880000233650208
+        ]
+      ],
+      "quiet_puppet": false,
+      "root_motion": "None; race definition controls progress and lane",
+      "gltf_validation": {
+        "validator": "Khronos glTF Validator 2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 5,
+        "warning_codes": [
+          "NODE_SKINNED_MESH_NON_ROOT"
+        ]
+      }
+    },
+    {
+      "id": "elon",
+      "name": "Elon",
+      "file": "assets/elon.glb",
+      "bytes": 2922968,
+      "sha256": "35747ad19fdc7fde062dd0d349a5f2261cbcf0191b57d0da2cb81e25d6b7b208",
+      "meshes": 22,
+      "nodes": 45,
+      "skins": 1,
+      "embedded_images": 6,
+      "animations": [
+        {
+          "name": "gait",
+          "duration_seconds": 4,
+          "channels": 59
+        }
+      ],
+      "blender_bounds_xyz": [
+        [
+          -2.53129506111145,
+          1.8961939811706543
+        ],
+        [
+          -0.6880000233650208,
+          1.229870319366455
+        ],
+        [
+          -0.03999999910593033,
+          4.387408256530762
+        ]
+      ],
+      "bounds_xyz": [
+        [
+          -2.53129506111145,
+          1.8961939811706543
+        ],
+        [
+          -0.03999999910593033,
+          4.387408256530762
+        ],
+        [
+          -1.229870319366455,
+          0.6880000233650208
+        ]
+      ],
+      "quiet_puppet": false,
+      "root_motion": "None; race definition controls progress and lane",
+      "gltf_validation": {
+        "validator": "Khronos glTF Validator 2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 5,
+        "warning_codes": [
+          "NODE_SKINNED_MESH_NON_ROOT"
+        ]
+      }
+    },
+    {
+      "id": "gordon",
+      "name": "Gordon",
+      "file": "assets/gordon.glb",
+      "bytes": 2913916,
+      "sha256": "1a58e407a69500fd765ecc5ea2cc74af3d8a2610d48064aadc2cd461ce7a0f6e",
+      "meshes": 34,
+      "nodes": 60,
+      "skins": 1,
+      "embedded_images": 6,
+      "animations": [
+        {
+          "name": "gait",
+          "duration_seconds": 4,
+          "channels": 62
+        }
+      ],
+      "blender_bounds_xyz": [
+        [
+          -2.486495018005371,
+          1.8961939811706543
+        ],
+        [
+          -0.6880000233650208,
+          1.3054893016815186
+        ],
+        [
+          -0.03999999910593033,
+          4.4313859939575195
+        ]
+      ],
+      "bounds_xyz": [
+        [
+          -2.486495018005371,
+          1.8961939811706543
+        ],
+        [
+          -0.03999999910593033,
+          4.4313859939575195
+        ],
+        [
+          -1.3054893016815186,
+          0.6880000233650208
+        ]
+      ],
+      "quiet_puppet": false,
+      "root_motion": "None; race definition controls progress and lane",
+      "gltf_validation": {
+        "validator": "Khronos glTF Validator 2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 5,
+        "warning_codes": [
+          "NODE_SKINNED_MESH_NON_ROOT"
+        ]
+      }
+    },
+    {
+      "id": "snoop",
+      "name": "Snoop",
+      "file": "assets/snoop.glb",
+      "bytes": 2909336,
+      "sha256": "8353e4578eeef9e814dfc7e7f3ccaf80bc9da807595d2ea13a1446270024d8ec",
+      "meshes": 18,
+      "nodes": 41,
+      "skins": 1,
+      "embedded_images": 6,
+      "animations": [
+        {
+          "name": "gait",
+          "duration_seconds": 4,
+          "channels": 57
+        }
+      ],
+      "blender_bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.6880000233650208,
+          1.2633136510849
+        ],
+        [
+          -0.03999999910593033,
+          4.474907398223877
+        ]
+      ],
+      "bounds_xyz": [
+        [
+          -2.227893829345703,
+          1.8961939811706543
+        ],
+        [
+          -0.03999999910593033,
+          4.474907398223877
+        ],
+        [
+          -1.2633136510849,
+          0.6880000233650208
+        ]
+      ],
+      "quiet_puppet": false,
+      "root_motion": "None; race definition controls progress and lane",
+      "gltf_validation": {
+        "validator": "Khronos glTF Validator 2.0.0-dev.3.10",
+        "errors": 0,
+        "warnings": 5,
+        "warning_codes": [
+          "NODE_SKINNED_MESH_NON_ROOT"
+        ]
+      }
+    }
+  ],
+  "validation": {
+    "all_seven_assets_present": true,
+    "all_sha256_match": true,
+    "embedded_images_only": true,
+    "no_scene_cameras_or_audio": true,
+    "all_roots_zero_and_unanimated": true,
+    "all_clips_four_seconds": true
+  }
+}

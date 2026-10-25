@@ -1,0 +1,27 @@
+{
+  "name": "horserace-race-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local data-driven race test using the reusable HorseRace cast",
+  "scripts": {
+    "start": "python ../serve_preview.py",
+    "test": "node --test race-core.test.js track.test.js audio-plan.test.js server/game.test.js",
+    "test:assets": "node verify-assets.mjs",
+    "test:browser": "node verify-browser.mjs",
+    "build": "node build-standalone.mjs",
+    "record:demo": "node record-demo.mjs",
+    "test:circuit": "node verify-circuit.mjs",
+    "build:site": "node build-site.mjs",
+    "test:audio": "node verify-audio.mjs",
+    "start:multiplayer": "node server/start.js",
+    "test:multiplayer": "node verify-multiplayer.mjs"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "esbuild": "0.25.11"
+  }
+}

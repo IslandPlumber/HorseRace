@@ -1,0 +1,33 @@
+{
+  "verifiedAt": "2026-10-25T04:50:25.153Z",
+  "checks": [
+    "two separate player sessions",
+    "saved upgrades and horse selection",
+    "shared room and betting countdown",
+    "no result before betting closes",
+    "same race and synchronized playback",
+    "live transport controls locked",
+    "personal camera controls",
+    "finish prizes and bet return",
+    "refresh does not repay",
+    "fresh browser login restores progress",
+    "390px mobile layout",
+    "no page errors"
+  ],
+  "stateA": {
+    "id": "73fb97b2-9c82-48eb-b617-c5c750d871d9",
+    "time": 2.761,
+    "clock": 2.779
+  },
+  "stateB": {
+    "id": "73fb97b2-9c82-48eb-b617-c5c750d871d9",
+    "time": 2.743,
+    "clock": 2.755
+  },
+  "returningPlayer": {
+    "coins": 925,
+    "points": 1,
+    "races": 1,
+    "horse": "snoop"
+  }
+}

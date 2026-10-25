@@ -1,0 +1,360 @@
+{
+  "version": 1,
+  "id": "race-2ac675c0",
+  "title": "The StreakChat Park Classic",
+  "seed": 731,
+  "duration": 64,
+  "startDelay": 7,
+  "track": {
+    "type": "circuit",
+    "straight": 88,
+    "shortStraight": 30,
+    "radius": 28,
+    "laneWidth": 2.4,
+    "laps": 1,
+    "length": 411.9291886010284,
+    "startOffset": 72.16
+  },
+  "cast": [
+    {
+      "id": "trump",
+      "lane": 0,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 7,
+          "distance": 0
+        },
+        {
+          "time": 13.84,
+          "distance": 41.611979
+        },
+        {
+          "time": 22.39,
+          "distance": 101.232288
+        },
+        {
+          "time": 31.51,
+          "distance": 165.321425
+        },
+        {
+          "time": 41.2,
+          "distance": 242.214363
+        },
+        {
+          "time": 49.75,
+          "distance": 303.472985
+        },
+        {
+          "time": 57.92,
+          "distance": 411.9291886010284
+        },
+        {
+          "time": 64,
+          "distance": 437.365816
+        }
+      ]
+    },
+    {
+      "id": "biden",
+      "lane": 2,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 7,
+          "distance": 0
+        },
+        {
+          "time": 13.84,
+          "distance": 41.334816
+        },
+        {
+          "time": 22.39,
+          "distance": 106.277731
+        },
+        {
+          "time": 31.51,
+          "distance": 165.272683
+        },
+        {
+          "time": 41.2,
+          "distance": 237.709971
+        },
+        {
+          "time": 49.75,
+          "distance": 301.920139
+        },
+        {
+          "time": 57.54,
+          "distance": 411.9291886010284
+        },
+        {
+          "time": 64,
+          "distance": 438.955605
+        }
+      ]
+    },
+    {
+      "id": "mcconnell",
+      "lane": 5,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 7,
+          "distance": 0
+        },
+        {
+          "time": 13.84,
+          "distance": 39.744042
+        },
+        {
+          "time": 22.39,
+          "distance": 101.604811
+        },
+        {
+          "time": 31.51,
+          "distance": 172.186401
+        },
+        {
+          "time": 41.2,
+          "distance": 237.601434
+        },
+        {
+          "time": 49.75,
+          "distance": 303.424983
+        },
+        {
+          "time": 58.3,
+          "distance": 411.9291886010284
+        },
+        {
+          "time": 64,
+          "distance": 435.776027
+        }
+      ]
+    },
+    {
+      "id": "bernie",
+      "lane": 6,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 7,
+          "distance": 0
+        },
+        {
+          "time": 13.84,
+          "distance": 41.195516
+        },
+        {
+          "time": 22.39,
+          "distance": 101.608195
+        },
+        {
+          "time": 31.51,
+          "distance": 166.872729
+        },
+        {
+          "time": 41.2,
+          "distance": 235.454526
+        },
+        {
+          "time": 49.75,
+          "distance": 301.942552
+        },
+        {
+          "time": 58.68,
+          "distance": 411.9291886010284
+        },
+        {
+          "time": 64,
+          "distance": 434.186238
+        }
+      ]
+    },
+    {
+      "id": "elon",
+      "lane": 1,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 7,
+          "distance": 0
+        },
+        {
+          "time": 13.84,
+          "distance": 40.344021
+        },
+        {
+          "time": 22.39,
+          "distance": 101.011698
+        },
+        {
+          "time": 31.51,
+          "distance": 165.969504
+        },
+        {
+          "time": 41.2,
+          "distance": 236.740214
+        },
+        {
+          "time": 49.75,
+          "distance": 308.123033
+        },
+        {
+          "time": 57.16,
+          "distance": 411.9291886010284
+        },
+        {
+          "time": 64,
+          "distance": 440.545394
+        }
+      ]
+    },
+    {
+      "id": "gordon",
+      "lane": 4,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 7,
+          "distance": 0
+        },
+        {
+          "time": 13.84,
+          "distance": 41.43287
+        },
+        {
+          "time": 22.39,
+          "distance": 100.277386
+        },
+        {
+          "time": 31.51,
+          "distance": 167.635248
+        },
+        {
+          "time": 41.2,
+          "distance": 238.463967
+        },
+        {
+          "time": 49.75,
+          "distance": 303.088446
+        },
+        {
+          "time": 59.06,
+          "distance": 411.9291886010284
+        },
+        {
+          "time": 64,
+          "distance": 432.596448
+        }
+      ]
+    },
+    {
+      "id": "snoop",
+      "lane": 3,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 7,
+          "distance": 0
+        },
+        {
+          "time": 13.84,
+          "distance": 46.547998
+        },
+        {
+          "time": 22.39,
+          "distance": 99.457088
+        },
+        {
+          "time": 31.51,
+          "distance": 166.423733
+        },
+        {
+          "time": 41.2,
+          "distance": 237.154251
+        },
+        {
+          "time": 49.75,
+          "distance": 301.575447
+        },
+        {
+          "time": 59.44,
+          "distance": 411.9291886010284
+        },
+        {
+          "time": 64,
+          "distance": 431.006659
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "gate",
+      "type": "caption",
+      "time": 0,
+      "duration": 7,
+      "text": "Under starter’s orders…"
+    },
+    {
+      "id": "start",
+      "type": "caption",
+      "time": 7,
+      "duration": 3.2,
+      "text": "The gates are open!"
+    },
+    {
+      "id": "early-leader",
+      "type": "caption",
+      "time": 17.26,
+      "duration": 6.4,
+      "text": "Snoop takes the early lead."
+    },
+    {
+      "id": "late-charge",
+      "type": "caption",
+      "time": 50.32,
+      "duration": 4.48,
+      "text": "Elon makes a late charge!"
+    },
+    {
+      "id": "winner",
+      "type": "caption",
+      "time": 57.16,
+      "duration": 5.12,
+      "text": "Elon crosses first!"
+    }
+  ],
+  "outcome": [
+    "elon",
+    "biden",
+    "trump",
+    "mcconnell",
+    "bernie",
+    "gordon",
+    "snoop"
+  ]
+}
