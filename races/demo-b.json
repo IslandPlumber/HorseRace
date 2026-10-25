@@ -1,13 +1,19 @@
 {
   "version": 1,
-  "id": "race-a6d1418d",
-  "title": "Snoop takes the long straight",
+  "id": "race-9063a155",
+  "title": "Snoop’s Long Way Home",
   "seed": 2048,
-  "duration": 14,
+  "duration": 72,
+  "startDelay": 3,
   "track": {
-    "type": "straight",
-    "length": 100,
-    "laneWidth": 2.6
+    "type": "circuit",
+    "straight": 105,
+    "shortStraight": 35,
+    "radius": 32,
+    "laneWidth": 2.5,
+    "laps": 1,
+    "length": 481.06192982974676,
+    "startOffset": 86.1
   },
   "cast": [
     {
@@ -19,24 +25,36 @@
           "distance": 0
         },
         {
-          "time": 2.52,
-          "distance": 10.356657
+          "time": 3,
+          "distance": 0
         },
         {
-          "time": 5.6,
-          "distance": 33.625223
+          "time": 11.28,
+          "distance": 48.318664
         },
         {
-          "time": 8.68,
-          "distance": 81
+          "time": 21.63,
+          "distance": 119.677553
         },
         {
-          "time": 10.92,
-          "distance": 100
+          "time": 32.67,
+          "distance": 193.332615
         },
         {
-          "time": 14,
-          "distance": 114.3
+          "time": 44.4,
+          "distance": 278.346574
+        },
+        {
+          "time": 54.75,
+          "distance": 359.834324
+        },
+        {
+          "time": 63.72,
+          "distance": 481.06192982974676
+        },
+        {
+          "time": 72,
+          "distance": 517.021309
         }
       ]
     },
@@ -49,24 +67,36 @@
           "distance": 0
         },
         {
-          "time": 2.52,
-          "distance": 24
+          "time": 3,
+          "distance": 0
         },
         {
-          "time": 5.6,
-          "distance": 50
+          "time": 11.28,
+          "distance": 54.359998
         },
         {
-          "time": 8.68,
-          "distance": 69.355833
+          "time": 21.63,
+          "distance": 118.010037
         },
         {
-          "time": 13.16,
-          "distance": 100
+          "time": 32.67,
+          "distance": 195.164448
         },
         {
-          "time": 14,
-          "distance": 103.9
+          "time": 44.4,
+          "distance": 275.864292
+        },
+        {
+          "time": 54.75,
+          "distance": 352.940019
+        },
+        {
+          "time": 66.48,
+          "distance": 481.06192982974676
+        },
+        {
+          "time": 72,
+          "distance": 505.034849
         }
       ]
     },
@@ -79,24 +109,36 @@
           "distance": 0
         },
         {
-          "time": 2.52,
-          "distance": 14.022215
+          "time": 3,
+          "distance": 0
         },
         {
-          "time": 5.6,
-          "distance": 40.211284
+          "time": 11.28,
+          "distance": 49.7197
         },
         {
-          "time": 8.68,
-          "distance": 73.539139
+          "time": 21.63,
+          "distance": 124.113978
         },
         {
-          "time": 12.04,
-          "distance": 100
+          "time": 32.67,
+          "distance": 193.145091
         },
         {
-          "time": 14,
-          "distance": 109.1
+          "time": 44.4,
+          "distance": 277.594996
+        },
+        {
+          "time": 54.75,
+          "distance": 352.161808
+        },
+        {
+          "time": 65.1,
+          "distance": 481.06192982974676
+        },
+        {
+          "time": 72,
+          "distance": 511.028079
         }
       ]
     },
@@ -109,24 +151,36 @@
           "distance": 0
         },
         {
-          "time": 2.52,
-          "distance": 16.368847
+          "time": 3,
+          "distance": 0
         },
         {
-          "time": 5.6,
-          "distance": 43.080494
+          "time": 11.28,
+          "distance": 46.937343
         },
         {
-          "time": 8.68,
-          "distance": 71.80514
+          "time": 21.63,
+          "distance": 117.172166
         },
         {
-          "time": 12.6,
-          "distance": 100
+          "time": 32.67,
+          "distance": 195.427005
         },
         {
-          "time": 14,
-          "distance": 106.5
+          "time": 44.4,
+          "distance": 282.864415
+        },
+        {
+          "time": 54.75,
+          "distance": 354.139487
+        },
+        {
+          "time": 65.79,
+          "distance": 481.06192982974676
+        },
+        {
+          "time": 72,
+          "distance": 508.031464
         }
       ]
     },
@@ -139,55 +193,74 @@
           "distance": 0
         },
         {
-          "time": 2.52,
-          "distance": 12.533143
+          "time": 3,
+          "distance": 0
         },
         {
-          "time": 5.6,
-          "distance": 36.314595
+          "time": 11.28,
+          "distance": 48.455728
         },
         {
-          "time": 8.68,
-          "distance": 76.500265
+          "time": 21.63,
+          "distance": 118.315262
         },
         {
-          "time": 11.48,
-          "distance": 100
+          "time": 32.67,
+          "distance": 201.083887
         },
         {
-          "time": 14,
-          "distance": 111.7
+          "time": 44.4,
+          "distance": 277.227878
+        },
+        {
+          "time": 54.75,
+          "distance": 352.495598
+        },
+        {
+          "time": 64.41,
+          "distance": 481.06192982974676
+        },
+        {
+          "time": 72,
+          "distance": 514.024694
         }
       ]
     }
   ],
   "events": [
     {
-      "id": "start",
+      "id": "gate",
       "type": "caption",
       "time": 0,
-      "duration": 1.4,
-      "text": "They're off!"
+      "duration": 3,
+      "text": "Under starter’s orders…"
+    },
+    {
+      "id": "start",
+      "type": "caption",
+      "time": 3,
+      "duration": 3.6,
+      "text": "The gates are open!"
     },
     {
       "id": "early-leader",
       "type": "caption",
-      "time": 2.52,
-      "duration": 1.4,
+      "time": 15.42,
+      "duration": 7.2,
       "text": "Gordon takes the early lead."
     },
     {
       "id": "late-charge",
       "type": "caption",
-      "time": 8.12,
-      "duration": 1.68,
+      "time": 55.44,
+      "duration": 5.04,
       "text": "Snoop makes a late charge!"
     },
     {
       "id": "winner",
       "type": "caption",
-      "time": 10.92,
-      "duration": 1.96,
+      "time": 63.72,
+      "duration": 5.76,
       "text": "Snoop crosses first!"
     }
   ],
