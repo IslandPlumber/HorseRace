@@ -175,6 +175,7 @@ function textSprite(text) {
 }
 function disposeTrack() {
   trackRoot.traverse((object) => {
+    if (object.isInstancedMesh) object.dispose();
     object.geometry?.dispose();
     if (object.material) for (const material of (Array.isArray(object.material) ? object.material : [object.material])) {
       material.map?.dispose();
