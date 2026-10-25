@@ -1,0 +1,263 @@
+{
+  "version": 1,
+  "id": "race-9796df39",
+  "title": "Elon's late charge",
+  "seed": 731,
+  "duration": 12,
+  "track": {
+    "type": "straight",
+    "length": 80,
+    "laneWidth": 2.4
+  },
+  "cast": [
+    {
+      "id": "trump",
+      "lane": 0,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.16,
+          "distance": 10.666341
+        },
+        {
+          "time": 4.8,
+          "distance": 30.426415
+        },
+        {
+          "time": 7.44,
+          "distance": 60.092027
+        },
+        {
+          "time": 10,
+          "distance": 80
+        },
+        {
+          "time": 12,
+          "distance": 88.666667
+        }
+      ]
+    },
+    {
+      "id": "biden",
+      "lane": 2,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.16,
+          "distance": 9.309349
+        },
+        {
+          "time": 4.8,
+          "distance": 28.371948
+        },
+        {
+          "time": 7.44,
+          "distance": 61.459866
+        },
+        {
+          "time": 9.68,
+          "distance": 80
+        },
+        {
+          "time": 12,
+          "distance": 90.053333
+        }
+      ]
+    },
+    {
+      "id": "mcconnell",
+      "lane": 5,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.16,
+          "distance": 11.813234
+        },
+        {
+          "time": 4.8,
+          "distance": 31.783077
+        },
+        {
+          "time": 7.44,
+          "distance": 59.092442
+        },
+        {
+          "time": 10.32,
+          "distance": 80
+        },
+        {
+          "time": 12,
+          "distance": 87.28
+        }
+      ]
+    },
+    {
+      "id": "bernie",
+      "lane": 6,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.16,
+          "distance": 12.889367
+        },
+        {
+          "time": 4.8,
+          "distance": 33.488123
+        },
+        {
+          "time": 7.44,
+          "distance": 58.084653
+        },
+        {
+          "time": 10.64,
+          "distance": 80
+        },
+        {
+          "time": 12,
+          "distance": 85.893333
+        }
+      ]
+    },
+    {
+      "id": "elon",
+      "lane": 1,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.16,
+          "distance": 8.601384
+        },
+        {
+          "time": 4.8,
+          "distance": 26.587519
+        },
+        {
+          "time": 7.44,
+          "distance": 64.8
+        },
+        {
+          "time": 9.36,
+          "distance": 80
+        },
+        {
+          "time": 12,
+          "distance": 91.44
+        }
+      ]
+    },
+    {
+      "id": "gordon",
+      "lane": 4,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.16,
+          "distance": 13.509202
+        },
+        {
+          "time": 4.8,
+          "distance": 35.259066
+        },
+        {
+          "time": 7.44,
+          "distance": 56.719496
+        },
+        {
+          "time": 10.96,
+          "distance": 80
+        },
+        {
+          "time": 12,
+          "distance": 84.506667
+        }
+      ]
+    },
+    {
+      "id": "snoop",
+      "lane": 3,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.16,
+          "distance": 19.2
+        },
+        {
+          "time": 4.8,
+          "distance": 40
+        },
+        {
+          "time": 7.44,
+          "distance": 55.386862
+        },
+        {
+          "time": 11.28,
+          "distance": 80
+        },
+        {
+          "time": 12,
+          "distance": 83.12
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "start",
+      "type": "caption",
+      "time": 0,
+      "duration": 1.2,
+      "text": "They're off!"
+    },
+    {
+      "id": "early-leader",
+      "type": "caption",
+      "time": 2.16,
+      "duration": 1.2,
+      "text": "Snoop takes the early lead."
+    },
+    {
+      "id": "late-charge",
+      "type": "caption",
+      "time": 6.96,
+      "duration": 1.44,
+      "text": "Elon makes a late charge!"
+    },
+    {
+      "id": "winner",
+      "type": "caption",
+      "time": 9.36,
+      "duration": 1.68,
+      "text": "Elon crosses first!"
+    }
+  ],
+  "outcome": [
+    "elon",
+    "biden",
+    "trump",
+    "mcconnell",
+    "bernie",
+    "gordon",
+    "snoop"
+  ]
+}

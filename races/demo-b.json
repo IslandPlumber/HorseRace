@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "id": "race-a6d1418d",
+  "title": "Snoop takes the long straight",
+  "seed": 2048,
+  "duration": 14,
+  "track": {
+    "type": "straight",
+    "length": 100,
+    "laneWidth": 2.6
+  },
+  "cast": [
+    {
+      "id": "snoop",
+      "lane": 4,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.52,
+          "distance": 10.356657
+        },
+        {
+          "time": 5.6,
+          "distance": 33.625223
+        },
+        {
+          "time": 8.68,
+          "distance": 81
+        },
+        {
+          "time": 10.92,
+          "distance": 100
+        },
+        {
+          "time": 14,
+          "distance": 114.3
+        }
+      ]
+    },
+    {
+      "id": "gordon",
+      "lane": 2,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.52,
+          "distance": 24
+        },
+        {
+          "time": 5.6,
+          "distance": 50
+        },
+        {
+          "time": 8.68,
+          "distance": 69.355833
+        },
+        {
+          "time": 13.16,
+          "distance": 100
+        },
+        {
+          "time": 14,
+          "distance": 103.9
+        }
+      ]
+    },
+    {
+      "id": "bernie",
+      "lane": 0,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.52,
+          "distance": 14.022215
+        },
+        {
+          "time": 5.6,
+          "distance": 40.211284
+        },
+        {
+          "time": 8.68,
+          "distance": 73.539139
+        },
+        {
+          "time": 12.04,
+          "distance": 100
+        },
+        {
+          "time": 14,
+          "distance": 109.1
+        }
+      ]
+    },
+    {
+      "id": "trump",
+      "lane": 1,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.52,
+          "distance": 16.368847
+        },
+        {
+          "time": 5.6,
+          "distance": 43.080494
+        },
+        {
+          "time": 8.68,
+          "distance": 71.80514
+        },
+        {
+          "time": 12.6,
+          "distance": 100
+        },
+        {
+          "time": 14,
+          "distance": 106.5
+        }
+      ]
+    },
+    {
+      "id": "biden",
+      "lane": 3,
+      "progress": [
+        {
+          "time": 0,
+          "distance": 0
+        },
+        {
+          "time": 2.52,
+          "distance": 12.533143
+        },
+        {
+          "time": 5.6,
+          "distance": 36.314595
+        },
+        {
+          "time": 8.68,
+          "distance": 76.500265
+        },
+        {
+          "time": 11.48,
+          "distance": 100
+        },
+        {
+          "time": 14,
+          "distance": 111.7
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "start",
+      "type": "caption",
+      "time": 0,
+      "duration": 1.4,
+      "text": "They're off!"
+    },
+    {
+      "id": "early-leader",
+      "type": "caption",
+      "time": 2.52,
+      "duration": 1.4,
+      "text": "Gordon takes the early lead."
+    },
+    {
+      "id": "late-charge",
+      "type": "caption",
+      "time": 8.12,
+      "duration": 1.68,
+      "text": "Snoop makes a late charge!"
+    },
+    {
+      "id": "winner",
+      "type": "caption",
+      "time": 10.92,
+      "duration": 1.96,
+      "text": "Snoop crosses first!"
+    }
+  ],
+  "outcome": [
+    "snoop",
+    "biden",
+    "bernie",
+    "trump",
+    "gordon"
+  ]
+}

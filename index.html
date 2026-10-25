@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>StreakChat · Race Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%231b241e%22/%3E%3Ctext x=%2216%22 y=%2223%22 text-anchor=%22middle%22 fill=%22%23dfbd70%22 font-size=%2224%22%3ES%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div><p class="eyebrow">STREAKCHAT / RACE LAB</p><h1>Same cast. A different race.</h1><p class="intro">Choose a race or generate one before the start. The timeline decides the overtakes and finish; the same rider models play it back.</p></div>
+      <span class="prototype">Scripted race test</span>
+    </header>
+    <section class="race-tools" aria-label="Race setup">
+      <label class="field">Race<select id="race-select"><option value="demo-a">Race A</option><option value="demo-b">Race B</option><option value="generated" hidden>Generated race</option><option value="imported" hidden>Imported race</option></select></label>
+      <label class="field seed-field">Seed<input id="seed" value="17" inputmode="numeric" aria-label="Race generation seed"></label>
+      <button id="generate" class="button">Generate race</button><button id="random-seed" class="button quiet" title="Choose another seed and generate a race">New seed</button>
+      <div class="file-tools"><button id="download" class="button quiet" disabled>Save race JSON</button><label class="button quiet file-label">Load JSON<input id="import-file" type="file" accept=".json,application/json"></label></div>
+    </section>
+    <div class="workbench">
+      <section class="stage-card" aria-label="Race preview">
+        <div class="stage-heading"><div><p class="eyebrow">PREPARED RACE</p><h2 id="race-title">Loading the cast…</h2></div><div class="clock"><strong id="elapsed">0.0</strong><span id="duration"> / — s</span></div></div>
+        <div class="viewport" id="viewport"><div id="loading" class="loading" role="status">Loading reusable rider models…</div><div id="caption" class="caption" aria-live="polite" hidden></div><div class="stage-badge" id="stage-badge">Seven reusable racers</div></div>
+        <div class="transport"><button id="play" class="button primary" disabled>Play race</button><button id="restart" class="button quiet" disabled>Restart</button><label class="timeline"><span class="sr-only">Race timeline</span><input id="timeline" type="range" min="0" max="12" value="0" step="0.01" disabled></label><button id="speed" class="button quiet speed" disabled aria-label="Playback speed">1×</button></div>
+        <div class="under-stage"><span id="race-note">The full race is prepared before playback.</span><span>Distance + lane → position on track</span></div>
+      </section>
+      <aside class="standings-card" aria-label="Race standings">
+        <div class="standings-heading"><p class="eyebrow">LIVE ORDER</p><h2 id="standings-title">At the start</h2></div>
+        <ol id="standings" class="standings"></ol>
+        <div class="result" id="result" hidden><p class="eyebrow">FINISH</p><strong id="winner"></strong><span id="result-note"></span></div>
+        <details class="definition"><summary>What defines this race?</summary><p>The cast, lanes, distance keyframes and event times live in one JSON file. Playback interpolates between those keyframes. The finishing order is scripted in advance.</p><p id="race-id"></p></details>
+      </aside>
+    </div>
+    <p id="error" class="error" role="alert" hidden></p>
+    <footer class="footer"><span>Prototype: straight track, reusable models, timed captions and race playback.</span><span>Photo and horse asset credits remain with the <a href="./CREDITS.md">source assets</a>.</span></footer>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
