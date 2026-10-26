@@ -1,6 +1,6 @@
 # Rider powers
 
-New club races use `skills-v4-leader-powers`. Every rider, including CPUs, gets one
+New club races use `skills-v5-heavy-hits`. Every rider, including CPUs, gets one
 automatic signature move per race. There are no power purchases or activation
 requests. The server chooses a seeded activation point between 28% and 66% of
 the course, simulates the whole field together, and persists actual movement,
@@ -12,9 +12,9 @@ Saved races keep their original model, results and ticket returns.
 | Trump | Hat Trick | Spinning red hats distract up to three nearby rivals; Trump gets a small surge. |
 | Elon | Totally Normal Rocket | A tiny saddle rocket gives a short solo speed boost. |
 | Biden | Ice Cream Express | An ice-cream cone provides a very motivating target for a sprint. |
-| McConnell | Filibuster the Front-runner | Express paperwork briefly slows the leader, at any range. |
+| McConnell | Filibuster the Front-runner | Express paperwork jolts the leader, then slows their pace for several seconds. |
 | Bernie | Mittens for the Many | Bernie surges and shares a smaller boost with the racer running last, if that is someone else. |
-| Gordon | Where’s the Gallop?! | A homing frying pan briefly slows the leader, at any range. |
+| Gordon | Where’s the Gallop?! | A homing pan sharply knocks the leader out of stride and leaves them seeing stars. |
 | Snoop | Chill Out, Neigh-bor | A mellow musical cloud briefly slows up to three nearby rivals. |
 
 Trump and Snoop attack up to three rivals within 16 metres at activation,
@@ -32,13 +32,29 @@ close finishes. Targets must still be racing.
 Impacts follow a short visible throw. Targets and the most recent four moves
 appear in the race feed; ready/active/used and slowed states appear in live order.
 
-Boosts last roughly 2–3 seconds on the standard playback clock; attacks roughly
-1–2 seconds. Exact times scale with the race slot. Combined boosts cap at 28%;
-combined slowing caps at 24%. Focus reduces each incoming slowdown by 6% per
-level, up to 30% at level five. Nobody moves backwards, loses coins directly,
-falls off their horse or is forced to stop. No harmful real-world claims or
-celebrity voice impersonations are added. Props and quiet foley are original
-procedural artwork/sound; the existing rider images are unchanged.
+Boosts last roughly 2-3 seconds on the standard playback clock; area attacks
+roughly 1-2 seconds. Heavy leader hits are deliberately stronger: Gordon knocks
+current velocity down 60% and reduces target pace 55% for 3.4 simulation seconds;
+McConnell knocks velocity down 40% and reduces target pace 45% for 4.2 simulation
+seconds. These are about 2.8 and 3.5 seconds on the normal race clock. Each Focus
+level softens both penalties by 6%, up to 30%. Horses recover through their actual
+acceleration rather than teleporting. Nobody moves backwards or loses coins
+from an attack.
+
+Heavy slowdowns take the strongest active penalty, never their sum. Area slows
+still cap at 24%; overall slowing caps at 60%. A 2.4-simulation-second jolt cooldown
+protects a victim from repeated immediate velocity drops. Combined boosts still
+cap at 28%. Existing races retain their saved motion and original lighter effects.
+
+A hit displays a wobble, orbiting stars, a BONK/BLAH BLAH label and a prominent
+impact notice. The reactions use absolute race time and reset when seeking.
+Twelve original local WAV clips provide distinct comic launch/contact cues.
+Pans clang at impact, paperwork talks in trombone nonsense, and the other riders
+get whistles, rocket sputters, an ice-cream jingle, mitten chimes and mellow bass.
+The Powers slider is independent of Hooves/Crowd and is saved per browser.
+Late sound activation never replays past launches or impacts. These are original
+cartoon sounds, with no celebrity voice samples or imitations; rider images are
+unchanged.
 
 Training remains the main sustained advantage. Powers can swing close races;
 they never choose or overwrite the winner. Finish crossings still determine
@@ -48,6 +64,7 @@ before the server prepares any power times or result.
 The practice demonstrations remain their original scripts. To preview powers
 locally, import a definition produced by `simulateRace`, or join a club room.
 
-In the v4 1,000-seed audit, untrained character wins ranged from 12% to 16.3%;
-the 4/2/1 build won 66.7% and maximum training won 90.1% against six untrained
-rivals. These describe that sample, not guaranteed odds in every room.
+In the v5 1,000-seed audit, untrained character wins ranged from 13.7% to 15.2%;
+the 4/2/1 build won 60.3% and maximum training won 89.6% against six untrained
+rivals. The heavier hits make close races more vulnerable while retaining the
+training advantage. These describe the sample, not guaranteed room odds.

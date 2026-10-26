@@ -2,9 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {simulateRace} from './race-simulation.js';
 import {ACTOR_IDS,sampleRace,validateRace,generateRace} from '../race-core.js';
-import {POWERS,powerEvents,activePowerEffects,powerStatus} from '../powers.js';
+import {POWERS,powerEvents,activePowerEffects,powerStatus,hitReaction} from '../powers.js';
+import {POWER_CLIPS,comicClip,powerCues} from '../power-audio.js';
 import {distanceAt,finishTime} from '../gait.js';
 import {powerSound} from '../race-audio.js';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 
 const entrants=ACTOR_IDS.map(horse=>({horse}));
 test('all seven automatic powers are deterministic, persisted and replay correctly when seeking',()=>{
@@ -15,7 +18,7 @@ test('all seven automatic powers are deterministic, persisted and replay correct
  for(const e of powerEvents(a)) {
   assert.equal(powerStatus(a,e.actor,0),`${POWERS[e.actor].name} · ready`);
   assert.ok(!activePowerEffects(a,e.actor,e.time-.001).some(a=>a.kind==='boost'));
-  assert.match(powerStatus(a,e.actor,e.time+.01),/active/);
+  assert.match(powerStatus(a,e.actor,e.time+.01),/active|Regaining stride/);
   assert.ok(activePowerEffects(a,e.actor,e.time+.01).some(a=>a.kind==='boost'));
   assert.equal(activePowerEffects(a,e.actor,0).length,0);
   assert.deepEqual(sampleRace(a,e.time),sampleRace(b,e.time));
@@ -106,8 +109,8 @@ test('powers preserve the strong training advantage and all identities remain co
   }
  }
  for(const [id,n] of Object.entries(wins))assert.ok(n>70&&n<230,`${id}: ${n/10}% novice wins`);
- assert.ok(current>630&&current<830,`4/2/1 wins ${current/10}%`);
- assert.ok(max>830&&max<960,`max wins ${max/10}%`);
+ assert.ok(current>550&&current<800,`4/2/1 should still win most races: ${current/10}%`);
+ assert.ok(max>780&&max<940,`maximum training should remain dominant: ${max/10}%`);
  console.log('Powers balance:',{noviceWins:wins,currentPercent:current/10,maxPercent:max/10});
 });
 
@@ -126,8 +129,50 @@ test('original power foley is audible, finite, bounded and distinct',()=>{
  const signatures=new Set();
  for(const p of Object.values(POWERS)){
   const samples=powerSound(context,p.effect).getChannelData(0);
-  assert.ok(samples.every(n=>Number.isFinite(n)&&Math.abs(n)<.7));
+  assert.ok(samples.every(n=>Number.isFinite(n)&&Math.abs(n)<=.781));
   assert.ok(samples.some(n=>Math.abs(n)>.03));signatures.add(samples.slice(400,410).join(','));
  }
  assert.ok(signatures.size>=6);
+});
+
+test('heavy hits sharply reduce actual pace, persist through recovery and reset visual reactions on seek',()=>{
+ let measured=0,loss=0;
+ for(let i=0;i<80;i++){
+  const race=simulateRace(`hard-hit-${i}`,{entrants});
+  for(const e of powerEvents(race).filter(e=>e.impact&&e.targets.length)){
+   const id=e.targets[0],horse=race.cast.find(r=>r.id===id),dt=.22;
+   const before=(distanceAt(horse.progress,e.hitTime-.05)-distanceAt(horse.progress,e.hitTime-.05-dt))/dt;
+   const after=(distanceAt(horse.progress,e.hitTime+.35)-distanceAt(horse.progress,e.hitTime+.13))/dt;
+   if(before>3){loss+=1-after/before;measured++;}
+   assert.ok(e.hitDuration>2.5,'multi-second recovery on normal race clock');
+   assert.match(powerStatus(race,id,e.hitTime+.3),/Regaining stride/);
+   assert.notDeepEqual(hitReaction(race,id,e.hitTime+.3),{roll:0,lift:0});
+   assert.deepEqual(hitReaction(race,id,0),{roll:0,lift:0});
+   assert.deepEqual(hitReaction(race,id,race.duration),{roll:0,lift:0});
+  }
+ }
+ assert.ok(measured>100);assert.ok(loss/measured>.35,`average immediate pace loss: ${loss/measured}`);
+});
+
+test('comic clips are distinct and impacts sound at contact without replaying old launches',()=>{
+ const signatures=new Set();
+ for(const key of POWER_CLIPS){const samples=comicClip(key);assert.ok(samples.length>22050*.8);assert.ok(samples.every(v=>Number.isFinite(v)&&Math.abs(v)<=.781));signatures.add(samples.slice(2000,2010).join(','));}
+ assert.equal(signatures.size,POWER_CLIPS.length);
+ const race=simulateRace('sound-cues',{entrants}),event=powerEvents(race).find(e=>e.impact&&e.targets.length);
+ const all=powerCues(race),hit=all.find(c=>c.id===`${event.id}-hit`);
+ assert.equal(hit.time,event.hitTime);assert.equal(hit.phase,'hit');
+ const late=powerCues(race,event.time+.01);assert.ok(!late.some(c=>c.id===event.id));assert.ok(late.some(c=>c.id===hit.id));
+ assert.ok(!powerCues(race,event.hitTime+.01).some(c=>c.id===hit.id));
+});
+
+test('shipped comic WAV clips match their manifest and contain audible unclipped PCM',()=>{
+ const root=new URL('../audio/powers/',import.meta.url),manifest=JSON.parse(readFileSync(new URL('manifest.json',root)));
+ assert.deepEqual(manifest.clips.map(c=>c.key),POWER_CLIPS);
+ for(const clip of manifest.clips){
+  const wav=readFileSync(new URL(`${clip.key}.wav`,root));
+  assert.equal(createHash('sha256').update(wav).digest('hex'),clip.sha256);
+  assert.equal(wav.toString('ascii',0,4),'RIFF');assert.equal(wav.readUInt32LE(24),22050);
+  let peak=0,sum=0;for(let i=44;i<wav.length;i+=2){const sample=wav.readInt16LE(i)/32767;peak=Math.max(peak,Math.abs(sample));sum+=sample*sample;}
+  assert.ok(peak>.77&&peak<.79);assert.ok(Math.sqrt(sum/((wav.length-44)/2))>.08);
+ }
 });

@@ -1,6 +1,7 @@
 import {buildAudioPlan,crowdProfile,cueSchedule,cheerSchedule} from './audio-plan.js';
 import {GAIT_HZ,GAIT_LOOP,hoofSchedule} from './gait.js';
 import {powerEvents} from './powers.js';
+import {comicClip,POWER_CLIPS,powerCues} from './power-audio.js';
 const clamp=x=>Math.max(0,Math.min(1,x));
 export function starterShot(context){
  const b=context.createBuffer(1,Math.ceil(context.sampleRate*.65),context.sampleRate),data=b.getChannelData(0);let seed=7331;
@@ -9,18 +10,9 @@ export function starterShot(context){
  let peak=0;for(const n of data)peak=Math.max(peak,Math.abs(n));for(let i=0;i<data.length;i++)data[i]*=.82/peak;return b;
 }
 /** Original cartoon foley, with no sampled speech or external recordings. */
-export function powerSound(context,kind){
- const seconds=kind==='rocket'?.85:.5,buffer=context.createBuffer(1,Math.ceil(context.sampleRate*seconds),context.sampleRate),out=buffer.getChannelData(0);
- let seed=9123;
- for(let i=0;i<out.length;i++){
-  const t=i/context.sampleRate,u=t/seconds;seed=(Math.imul(seed,1664525)+1013904223)>>>0;
-  const noise=seed/2147483648-1,envelope=Math.sin(Math.PI*u)*Math.exp(-u*2);
-  const pitch=kind==='icecream'?700:kind==='mittens'?450:kind==='chill'?220:kind==='kitchen'?1000:330;
-  out[i]=(kind==='rocket'?noise*.48+Math.sin(t*180)*.15:
-   kind==='hat'||kind==='filibuster'?noise*.28+Math.sin(2*Math.PI*(pitch*t-180*t*t))*.18:
-   Math.sin(2*Math.PI*(pitch*t+140*t*t))*.28+noise*.06)*envelope;
- }
- return buffer;
+export function powerSound(context,kind,phase='launch'){
+ const samples=comicClip(`${kind}-${phase}`,context.sampleRate),buffer=context.createBuffer(1,samples.length,context.sampleRate);
+ buffer.getChannelData(0).set(samples);return buffer;
 }
 /** Dry dirt impacts, with a little real recorded hoof texture; one horse per voice. */
 export function hoofCycle(context,natural,id){
@@ -46,13 +38,18 @@ export function hoofCycle(context,natural,id){
 }
 export class RaceAudio {
  constructor({embedded={},onStatus=()=>{}}={}){
-  this.onStatus=onStatus;this.ctx=null;this.buffers=null;this.sources=new Set();this.generation=0;this.playing=false;this.race=null;this.cursor=0;this.speed=1;this.masterVolume=.65;this.crowdVolume=.3;this.hoofVolume=.75;this.muted=false;this.events=[];this.profile=null;this.hoofBuffers=new Map();this.horseChannels=new Map();
+  this.onStatus=onStatus;this.ctx=null;this.buffers=null;this.sources=new Set();this.generation=0;this.playing=false;this.race=null;this.cursor=0;this.speed=1;this.masterVolume=.65;this.crowdVolume=.3;this.hoofVolume=.75;this.powerVolume=.85;this.muted=false;this.events=[];this.profile=null;this.hoofBuffers=new Map();this.horseChannels=new Map();this.powerBuffers=new Map();
   try{const stored=JSON.parse(localStorage.getItem('race-audio-v1')??'null');if(stored){this.masterVolume=clamp(Number(stored.volume)||0);this.muted=Boolean(stored.muted);if(Number.isFinite(stored.crowdVolume))this.crowdVolume=clamp(stored.crowdVolume);if(Number.isFinite(stored.hoofVolume))this.hoofVolume=clamp(stored.hoofVolume);}}catch{}
+  try{const stored=JSON.parse(localStorage.getItem('race-audio-v1')??'null');if(Number.isFinite(stored?.powerVolume))this.powerVolume=clamp(stored.powerVolume);}catch{}
   this.embedded=embedded;this.raw=null;this.rawError=null;this.preload();
  }
  preload(){
   this.rawError=null;
   this.raw=Promise.all(['bugle','crowd','cheer','hooves'].map(async id=>{const response=await fetch(this.embedded[id]??`./audio/${id}.mp3?v=individual-hooves-3`);if(!response.ok)throw Error(`Could not load ${id} audio`);return[id,await response.arrayBuffer()];})).catch(error=>{this.rawError=error;return null;});
+  this.powerRaw=Promise.all(POWER_CLIPS.map(async key=>{try{
+   const response=await fetch(this.embedded[key]??`./audio/powers/${key}.wav?v=comic-hits-1`);if(!response.ok)throw Error('clip unavailable');
+   return [key,await response.arrayBuffer()];
+  }catch{return [key,null];}}));
  }
  async unlock(){
   if(!this.ctx){const Constructor=globalThis.AudioContext??globalThis.webkitAudioContext;if(!Constructor)throw Error('Audio is unavailable in this browser');
@@ -60,14 +57,24 @@ export class RaceAudio {
    this.limiter=this.ctx.createDynamicsCompressor();this.limiter.threshold.value=-10;this.limiter.knee.value=6;this.limiter.ratio.value=8;this.limiter.attack.value=.003;this.limiter.release.value=.18;this.master.connect(this.limiter);this.limiter.connect(this.ctx.destination);
   }
   // Resume synchronously in the Play/Sound click handler, before any fetch awaits.
-  await this.ctx.resume();
+  if(this.ctx.state!=='running')await this.ctx.resume();
   if(!this.buffers){
    if(!this.decoding)this.decoding=(async()=>{if(this.rawError)this.preload();const raw=await this.raw;if(!raw)throw this.rawError;const decoded=await Promise.all(raw.map(async([id,b])=>[id,await this.ctx.decodeAudioData(b.slice(0))]));return {...Object.fromEntries(decoded),shot:starterShot(this.ctx)};})();
    try{this.buffers=await this.decoding;}finally{this.decoding=null;}
   }
+  if(this.powerBuffers.size<POWER_CLIPS.length){
+   if(!this.powerDecoding)this.powerDecoding=(async()=>{
+    for(const [key,raw] of await this.powerRaw){
+     try{if(!raw)throw Error('fallback');this.powerBuffers.set(key,await this.ctx.decodeAudioData(raw.slice(0)));}
+     catch{const dash=key.lastIndexOf('-');this.powerBuffers.set(key,powerSound(this.ctx,key.slice(0,dash),key.slice(dash+1)));}
+    }
+   })();
+   await this.powerDecoding;
+  }
   this.onStatus('ready');
  }
- persist(){try{localStorage.setItem('race-audio-v1',JSON.stringify({volume:this.masterVolume,crowdVolume:this.crowdVolume,hoofVolume:this.hoofVolume,muted:this.muted}));}catch{}}
+ persist(){try{localStorage.setItem('race-audio-v1',JSON.stringify({volume:this.masterVolume,crowdVolume:this.crowdVolume,hoofVolume:this.hoofVolume,powerVolume:this.powerVolume,muted:this.muted}));}catch{}}
+ setPowerVolume(value){this.powerVolume=clamp(value);this.persist();if(this.powerMaster)this.powerMaster.gain.setTargetAtTime(this.powerVolume,this.ctx.currentTime,.025);}
  setHoofVolume(value){this.hoofVolume=clamp(value);this.persist();if(this.playing)this.updateGains(this.cursor,this.shot??'broadcast');}
  setCrowdVolume(value){this.crowdVolume=clamp(value);if(this.crowdMaster)this.crowdMaster.gain.setTargetAtTime(this.crowdVolume,this.ctx.currentTime,.025);this.persist();}
  setVolume(value){this.masterVolume=clamp(value);this.updateVolume();this.persist();}
@@ -124,30 +131,33 @@ export class RaceAudio {
    this.source(this.buffers[cue.id],gain,{after:cue.after/this.speed,offset:cue.offset,rate:this.speed,duration:cue.duration});
    this.events.push({id:cue.id,raceTime:cue.id==='shot'?this.plan.delay:time,after:cue.after/this.speed,generation:this.generation});if(this.events.length>100)this.events.shift();
   }
-  for(const event of powerEvents(this.race)) {
-   if(event.time<time)continue; // Joining late never replays old attacks.
-   const gain=c.createGain();gain.gain.value=.35;gain.connect(this.runGain);
-   this.source(powerSound(c,event.power),gain,{after:(event.time-time)/this.speed,rate:this.speed});
-   this.events.push({id:event.id,raceTime:event.time,generation:this.generation});
+  this.powerMaster=c.createGain();this.powerMaster.gain.value=this.powerVolume;this.powerMaster.connect(this.runGain);
+  for(const cue of powerCues(this.race,time)) {
+   if(!this.powerBuffers.has(cue.key))continue;
+   const gain=c.createGain();gain.gain.value=cue.phase==='hit'?.9:.65;gain.connect(this.powerMaster);
+   this.source(this.powerBuffers.get(cue.key),gain,{after:(cue.time-time)/this.speed,rate:this.speed});
+   this.events.push({id:cue.id,key:cue.key,phase:cue.phase,raceTime:cue.time,generation:this.generation});
    if(this.events.length>100)this.events.shift();
   }
   this.updateGains(time,'broadcast',true);
  }
  updateGains(time,shot,immediate=false,view=[],sample){
   if(!this.ctx||!this.ambience)return;this.shot=shot;this.profile=crowdProfile(this.race,this.plan,time,shot,sample);const now=this.ctx.currentTime;
-  const hoofLevel=(shot==='aerial'?.22:['rail','chase'].includes(shot)?.82:.6)*this.hoofVolume*(time<this.plan.delay?0:1);
+  const impact=powerEvents(this.race).some(e=>e.impact&&e.targets.length&&time>=e.hitTime&&time<e.hitTime+.8);
+  const duck=impact&&this.powerVolume>0?.65:1;
+  const hoofLevel=(shot==='aerial'?.22:['rail','chase'].includes(shot)?.82:.6)*this.hoofVolume*(time<this.plan.delay?0:1)*duck;
   for(const [id,channel] of this.horseChannels){
    const rider=view.find(r=>r.id===id);
    if(rider)channel.pan.pan.setTargetAtTime(rider.pan,now,.12);
    const distance=rider?Math.max(.4,Math.min(1,40/Math.max(1,rider.distance))):1;
    channel.gain.gain.setTargetAtTime(time>=channel.finish?0:distance/Math.pow(this.race.cast.length,.3),now,.06);
   }
-  for(const [param,value] of [[this.ambience.gain,this.profile.ambience],[this.cheers.gain,this.profile.cheer],[this.filter.frequency,this.profile.lowpass],[this.hooves.gain,hoofLevel]]){
+  for(const [param,value] of [[this.ambience.gain,this.profile.ambience*duck],[this.cheers.gain,this.profile.cheer*duck],[this.filter.frequency,this.profile.lowpass],[this.hooves.gain,hoofLevel]]){
    if(immediate)param.setValueAtTime(value,now);else param.setTargetAtTime(value,now,.16);
   }
  }
  sync(race,time,playing,speed,shot,view=[],sample){this.cursor=time;this.speed=speed;if(!playing){if(this.playing)this.pause();return;}if(this.playing&&this.buffers)this.updateGains(time,shot,false,view,sample);}
  captureStream(){if(!this.ctx)throw Error('Press Play first');if(!this.capture){this.capture=this.ctx.createMediaStreamDestination();this.limiter.connect(this.capture);}return this.capture.stream;}
- get diagnostics(){return {state:this.ctx?.state??'locked',playing:this.playing,muted:this.muted,volume:this.masterVolume,crowdVolume:this.crowdVolume,hoofVolume:this.hoofVolume,hoofRiders:this.playing?[...this.horseChannels.values()].filter(h=>this.cursor>=this.plan.delay&&this.cursor<h.finish).length:0,horseVoices:this.horseChannels.size,loaded:this.buffers?Object.keys(this.buffers):[],activeSources:this.sources.size,hoofGain:this.hooves?.gain.value??0,profile:this.profile,events:this.events.map(e=>({...e}))};}
+ get diagnostics(){return {state:this.ctx?.state??'locked',playing:this.playing,muted:this.muted,volume:this.masterVolume,crowdVolume:this.crowdVolume,hoofVolume:this.hoofVolume,powerVolume:this.powerVolume,powerClips:this.powerBuffers.size,powerGain:this.powerMaster?.gain.value??0,hoofRiders:this.playing?[...this.horseChannels.values()].filter(h=>this.cursor>=this.plan.delay&&this.cursor<h.finish).length:0,horseVoices:this.horseChannels.size,loaded:this.buffers?Object.keys(this.buffers):[],activeSources:this.sources.size,hoofGain:this.hooves?.gain.value??0,profile:this.profile,events:this.events.map(e=>({...e}))};}
  dispose(){this.pause();void this.ctx?.close();}
 }

@@ -23,7 +23,9 @@
     "test:training-balance": "node analyze-training.mjs",
     "test:training": "node verify-training.mjs",
     "test:betting": "node verify-betting.mjs",
-    "test:powers": "node verify-powers.mjs"
+    "test:powers": "node verify-powers.mjs",
+    "test:power-sound": "node verify-power-sound.mjs",
+    "prepare:power-audio": "node prepare-power-audio.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

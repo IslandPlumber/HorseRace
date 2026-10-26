@@ -4,7 +4,7 @@ import { POWERS } from "../powers.js";
 
 // A versioned, server-owned simulation. All clients receive the same persisted
 // distance timeline; finish order is measured from its crossings, never drawn.
-export const SIMULATION_VERSION = "skills-v4-leader-powers";
+export const SIMULATION_VERSION = "skills-v5-heavy-hits";
 const STEP = 0.125;
 const WINDOW = 68;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -108,7 +108,19 @@ function runField(seed, entrants, lanes, track, powers) {
       }
       const active = horse.effects.filter(e => localTime >= e.start && localTime < e.end);
       const boost = Math.min(.28, active.reduce((n,e) => n + e.boost, 0));
-      const slow = Math.min(.24, active.reduce((n,e) => n + (e.slow ?? 0), 0));
+      // A comic hit is a real loss of velocity, not only a lower future target.
+      // Nearby heavy hits share a jolt cooldown and their slowdowns never add.
+      for(const effect of active.filter(e=>e.shock&&!e.applied)){
+        effect.applied=true;
+        if(localTime >= (horse.nextJolt ?? 0)){
+          speed *= 1-effect.shock;
+          horse.nextJolt=localTime+2.4;
+          boundary=true;
+        }
+      }
+      const light = Math.min(.24, active.filter(e=>!e.shock).reduce((n,e) => n+(e.slow??0),0));
+      const heavy = Math.max(0,...active.filter(e=>e.shock).map(e=>e.slow));
+      const slow = Math.min(.60,Math.max(light,heavy));
       const target = cruise * (1 + interpolate(pace, fraction)) *
         (1 - fatigue) * (1 - turnLoss) * (rhythmLoss ? 0.72 : 1) * (1 + boost) * (1 - slow);
       const nextSpeed = speed < target ? Math.min(target, speed + acceleration * STEP)
@@ -165,14 +177,15 @@ function runField(seed, entrants, lanes, track, powers) {
       h.used = true;
       h.effects.push({start: time, end: time + p.duration, boost: p.boost});
       for (const target of targets) target.effects.push({start: hitTime, end: hitTime + p.hitDuration,
-        boost: p.assist ?? 0, slow: (p.slow ?? 0) * (1 - target.skills.focus * .06)});
+        boost: p.assist ?? 0, slow: (p.slow ?? 0) * (1 - target.skills.focus * .06),
+        shock: (p.shock ?? 0) * (1 - target.skills.focus * .06)});
       const detail = targets.length ? (p.targeting === 'leader' ? 'Leader targeted: ' : p.assist ? 'Shared horsepower for ' : 'Caught: ') +
         targets.map(t=>t.id).join(', ') + '.' : p.targeting === 'leader' ?
         'No rival leader to hit. Keeping the speed boost!' : p.slow ? 'The pack escapes the distraction.' : 'A burst of horsepower!';
       events.push({id: `power-${h.id}`, type: 'caption', power: p.effect, actor: h.id,
         time, duration: p.duration, hitTime, hitDuration: p.hitDuration ?? 0,
         targets: targets.map(other => other.id), assist: Boolean(p.assist),
-        targeting: p.targeting ?? (p.assist ? 'last' : p.slow ? 'nearby' : 'self'), detail,
+        targeting: p.targeting ?? (p.assist ? 'last' : p.slow ? 'nearby' : 'self'), impact: p.shock ?? 0, detail,
         text: `${p.name}${/[!?]$/.test(p.name) ? '' : '!'} ${detail}`});
     }
     if (firing.length) for(const horse of horses) {

@@ -9,6 +9,7 @@ const MIME = {
   ".json": "application/json",
   ".glb": "model/gltf-binary",
   ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
   ".md": "text/plain; charset=utf-8",
   ".png": "image/png",
 };

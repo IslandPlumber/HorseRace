@@ -9,20 +9,21 @@ import {MultiplayerUI} from './multiplayer.js';
 import {gaitClock} from './gait.js';
 import {parkSky} from './park-scenery.js';
 import {PowerView} from './power-view.js';
-import {powerStatus} from './powers.js';
+import {powerStatus,hitReaction} from './powers.js';
 let multiplayer=null;
 let needsRender=true;
 
 const $ = (id) => document.getElementById(id);
 const names = { trump: 'Donald Trump', biden: 'Joe Biden', mcconnell: 'Mitch McConnell', bernie: 'Bernie Sanders', elon: 'Elon Musk', gordon: 'Gordon Ramsay', snoop: 'Snoop Dogg' };
 const embedded = globalThis.RACE_LAB_EMBEDDED || {};
-const raceAudio=new RaceAudio({embedded:embedded.audio,onStatus:(state)=>{soundControls();$('sound-status').textContent=state==='error'?'Sound unavailable — tap Enable sound to retry.':'Sound ready · bugle, starting shot, hoofbeats & quiet crowd';}});
-function soundControls(){const active=!raceAudio.muted&&raceAudio.ctx?.state==='running';$('sound-toggle').textContent=raceAudio.muted?'Sound off':active?'Sound on':'Enable sound';$('sound-toggle').setAttribute('aria-pressed',String(active));$('sound-volume').value=Math.round(raceAudio.masterVolume*100);$('crowd-volume').value=Math.round(raceAudio.crowdVolume*100);$('hoof-volume').value=Math.round(raceAudio.hoofVolume*100);}
+const raceAudio=new RaceAudio({embedded:embedded.audio,onStatus:(state)=>{soundControls();$('sound-status').textContent=state==='error'?'Sound unavailable — tap Enable sound to retry.':'Sound ready · bugle, starting shot, hoofbeats, comic powers & quiet crowd';}});
+function soundControls(){const active=!raceAudio.muted&&raceAudio.ctx?.state==='running';$('sound-toggle').textContent=raceAudio.muted?'Sound off':active?'Sound on':'Enable sound';$('sound-toggle').setAttribute('aria-pressed',String(active));$('sound-volume').value=Math.round(raceAudio.masterVolume*100);$('crowd-volume').value=Math.round(raceAudio.crowdVolume*100);$('hoof-volume').value=Math.round(raceAudio.hoofVolume*100);$('power-volume').value=Math.round(raceAudio.powerVolume*100);}
 function armSound(){return raceAudio.unlock().then(()=>{soundControls();if(playing&&!raceAudio.playing&&!raceAudio.muted)void raceAudio.start(race,time,speed);}).catch(()=>{$('sound-status').textContent='Sound unavailable — tap Enable sound to retry.';});}
 $('sound-toggle').addEventListener('click',()=>{if(!raceAudio.muted&&raceAudio.ctx?.state==='running'){raceAudio.setMuted(true);soundControls();}else{raceAudio.setMuted(false);void armSound();}});
 $('sound-volume').addEventListener('input',()=>{raceAudio.setVolume(Number($('sound-volume').value)/100);soundControls();});
 $('crowd-volume').addEventListener('input',()=>{raceAudio.setCrowdVolume(Number($('crowd-volume').value)/100);soundControls();});
 $('hoof-volume').addEventListener('input',()=>{raceAudio.setHoofVolume(Number($('hoof-volume').value)/100);soundControls();});
+$('power-volume').addEventListener('input',()=>{raceAudio.setPowerVolume(Number($('power-volume').value)/100);soundControls();});
 // A real sign-in, room or betting gesture arms audio before asynchronous work.
 $('multiplayer').addEventListener('pointerdown',()=>{if(!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
 $('multiplayer').addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
@@ -341,7 +342,7 @@ function renderStandings(sample) {
     const li = $('standings').querySelector(`[data-rider="${runner.id}"]`);
     if (!li) continue;
     li.querySelector('.rider-sub').textContent = runnerStatus(race, runner, time);
-    li.querySelector('.rider-power').textContent = powerStatus(race, runner.id, time);
+    li.querySelector('.rider-power').textContent = powerStatus(race, runner.id, time,runner.finished);
     li.querySelector('.distance').textContent = runner.finished && Number.isFinite(runner.finishTime) ? `${runner.finishTime.toFixed(2)} s` : `${Math.min(race.track.length, runner.distance).toFixed(1)} m`;
   }
   const first = sample.runners.find((runner) => runner.id === sample.standings[0]);
@@ -363,6 +364,9 @@ function displayFrame(snapCamera = false) {
     if (!actor) continue;
     actor.group.position.set(runner.x, 0, runner.z);
     actor.group.rotation.y = -runner.heading;
+    const reaction=runner.finished?{roll:0,lift:0}:hitReaction(race,runner.id,time);
+    actor.group.rotation.z=reaction.roll;
+    actor.group.position.y=reaction.lift;
     // Restore the source pose before sampling: AnimationMixer may skip writing
     // an unchanged track, so billboard transforms must never feed back into it.
     if(actor.puppet)actor.puppet.quaternion.copy(actor.sourcePuppetPose);

@@ -9,6 +9,7 @@ export class PowerView {
     scene.add(this.root);
     this.groups = new Map();
     this.rings = new Map();
+    this.reactions = new Map();
     this.feedSignature = '';
     for (const [id, p] of Object.entries(POWERS)) {
       const group = new THREE.Group();
@@ -57,10 +58,22 @@ export class PowerView {
       const ring=new THREE.Mesh(new THREE.RingGeometry(1.8,2.15,32),
         new THREE.MeshBasicMaterial({color:p.color,transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));
       ring.rotation.x=-Math.PI/2; ring.visible=false; this.root.add(ring); this.rings.set(id,ring);
+      const reaction=new THREE.Group(),starShape=new THREE.Shape();
+      for(let n=0;n<10;n++){const angle=n*Math.PI/5,r=n%2?.15:.35;const x=Math.cos(angle)*r,y=Math.sin(angle)*r;n?starShape.lineTo(x,y):starShape.moveTo(x,y);}
+      starShape.closePath();
+      const stars=Array.from({length:5},()=>{const star=new THREE.Mesh(new THREE.ShapeGeometry(starShape),new THREE.MeshBasicMaterial({color:'#ffe17d',side:THREE.DoubleSide}));reaction.add(star);return star;});
+      const canvas=document.createElement('canvas');canvas.width=256;canvas.height=80;
+      const ctx=canvas.getContext('2d');ctx.fillStyle='#24251cec';ctx.fillRect(0,0,256,80);ctx.fillStyle='#ffe17d';ctx.font='900 40px system-ui';ctx.textAlign='center';ctx.fillText('BONK!',128,55);
+      const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+      const label=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthWrite:false}));label.scale.set(3.6,1.1,1);reaction.add(label);
+      reaction.visible=false;this.root.add(reaction);this.reactions.set(id,{group:reaction,stars,label,canvas,texture,lastLabel:''});
     }
   }
   update(race, sample, time) {
     const events=powerEvents(race), byId=new Map(sample.runners.map(r=>[r.id,r]));
+    const impact=events.filter(e=>e.impact&&e.targets.some(id=>!byId.get(id)?.finished)&&time>=e.hitTime&&time<e.hitTime+1.2).at(-1);
+    const banner=document.getElementById('power-impact');
+    if(banner){banner.hidden=!impact;const text=impact?`${impact.actor==='gordon'?'BONK!':'FILIBUSTERED!'} ${impact.targets.join(', ').toUpperCase()} · Regaining stride`:'';if(banner.textContent!==text)banner.textContent=text;}
     for(const [id,{group,props}] of this.groups) {
       const event=events.find(e=>e.actor===id && time>=e.time && time<e.time+e.duration);
       group.visible=Boolean(event);
@@ -90,6 +103,15 @@ export class PowerView {
       const ring=this.rings.get(runner.id),active=activePowerEffects(race,runner.id,time);
       ring.visible=active.length>0&&!runner.finished;
       if(ring.visible){ring.position.set(runner.x,.12,runner.z);ring.material.color.set(active.some(a=>a.kind==='slow')?'#ff826e':POWERS[runner.id].color);ring.scale.setScalar(1+Math.sin(time*12)*.09);}
+      const reaction=this.reactions.get(runner.id),hit=active.find(e=>e.kind==='slow'&&e.event.impact);
+      reaction.group.visible=Boolean(hit)&&!runner.finished;
+      if(reaction.group.visible){
+        const elapsed=time-hit.event.hitTime,text=hit.event.actor==='gordon'?'BONK!':'BLAH BLAH!';
+        if(text!==reaction.lastLabel){const ctx=reaction.canvas.getContext('2d');ctx.clearRect(0,0,256,80);ctx.fillStyle='#24251cec';ctx.fillRect(0,0,256,80);ctx.fillStyle='#ffe17d';ctx.font='900 36px system-ui';ctx.textAlign='center';ctx.fillText(text,128,53);reaction.texture.needsUpdate=true;reaction.lastLabel=text;}
+        reaction.group.position.set(runner.x,5.1,runner.z);
+        reaction.label.position.set(0,1.7+Math.sin(elapsed*7)*.1,0);
+        reaction.stars.forEach((star,n)=>{const angle=elapsed*5+n*Math.PI*2/5;star.position.set(Math.cos(angle)*1.25,Math.sin(angle*2)*.25+.4,Math.sin(angle)*1.25);star.rotation.set(.25,angle,elapsed*3);});
+      }
     }
     const feed=document.getElementById('power-feed');
     if(!feed)return;
@@ -103,6 +125,6 @@ export class PowerView {
     if(!past.length){const note=document.createElement('p');note.textContent='One automatic signature move per rider. Watch for the sparks.';feed.append(note);}
     for(const event of past){const row=document.createElement('p'),tag=document.createElement('strong');tag.textContent=`${event.time.toFixed(1)}s · ${POWERS[event.actor].name}`;row.append(tag,document.createTextNode(event.detail ?? event.text.slice(event.text.indexOf('! ')+2)));feed.append(row);}
   }
-  get diagnostics(){return {active:[...this.groups].filter(([,g])=>g.group.visible).map(([id])=>id),props:21};}
-  dispose(){this.root.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});this.root.removeFromParent();}
+  get diagnostics(){return {active:[...this.groups].filter(([,g])=>g.group.visible).map(([id])=>id),victims:[...this.reactions].filter(([,r])=>r.group.visible).map(([id])=>id),props:21};}
+  dispose(){this.root.traverse(o=>{o.geometry?.dispose();o.material?.map?.dispose();o.material?.dispose();});this.root.removeFromParent();}
 }

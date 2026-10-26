@@ -25,6 +25,9 @@ async function page(width){const c=await browser.newContext({viewport:{width,hei
 async function auth(p,name){await p.locator('#mp-username').fill(name);await p.locator('#mp-password').fill('temporary-local-fixture');await p.getByRole('button',{name:'Create account',exact:true}).click();await p.locator('#mp-name').filter({hasText:name}).waitFor();}
 try{
  const a=await page(1280),b=await page(390);await auth(a,'PowerAlice');await auth(b,'PowerBobby');
+ await a.waitForFunction(()=>window.raceLab.audio.powerClips===12);
+ await a.locator('#power-volume').evaluate(el=>{el.value=70;el.dispatchEvent(new Event('input',{bubbles:true}));});
+ assert.equal(await a.evaluate(()=>window.raceLab.audio.powerVolume),.7);
  assert.match(await a.locator('#mp-power-name').textContent(),/Rocket/);
  await b.selectOption('#mp-horse','trump');await b.getByRole('button',{name:'Save choice',exact:true}).click();
  await b.locator('#mp-power-name').filter({hasText:'Hat Trick'}).waitFor();
@@ -41,11 +44,12 @@ try{
  assert.deepEqual(await a.evaluate(()=>window.raceLab.race),await b.evaluate(()=>window.raceLab.race));assert.equal(powerEvents(race).length,7);
  const first=powerEvents(race).toSorted((a,b)=>a.time-b.time)[0];
  offset=game.latest(code).starts+(first.time+.2)*1000-Date.now();game.tick();
- await Promise.all([a,b].map(p=>p.waitForFunction(id=>window.raceLab.powers.active.includes(id),first.actor)));
+ await Promise.all([a,b].map(p=>p.waitForFunction(id=>window.raceLab.race.events.some(e=>e.actor===id&&e.time<=window.raceLab.time),first.actor)));
  for(const p of[a,b]){assert.ok(await p.locator('#power-feed').isVisible());assert.match(await p.locator('#power-feed').textContent(),new RegExp(POWERS[first.actor].name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));}
  await a.locator('#race-preview').screenshot({path:`${out}/live-power.png`});
  await b.reload();await b.locator('#mp-name').filter({hasText:'PowerBobby'}).waitFor();
  await b.waitForFunction(id=>window.raceLab?.ready&&window.raceLab.race.id===id,race.id);
+ assert.equal(await a.locator('#power-volume').inputValue(),'70');
  assert.deepEqual(await b.evaluate(()=>window.raceLab.race),race);
  report.checks.push('two players receive identical seven-power timeline after cutoff; active props/feed and reload preserve the same race');
  offset+=70000;game.tick();await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
@@ -83,6 +87,9 @@ try{
  for(const e of powerEvents(leaderFixture).filter(e=>e.targeting==='leader')){
   await preview.evaluate(t=>window.raceLab.seek(t),e.hitTime+.1);
   assert.ok((await preview.evaluate(()=>window.raceLab.powers.active)).includes(e.actor));
+  assert.deepEqual((await preview.evaluate(()=>window.raceLab.powers.victims)),e.targets);
+  assert.ok(await preview.locator('#power-impact').isVisible());
+  assert.match(await preview.locator('#standings').textContent(),/Regaining stride/);
   assert.match(await preview.locator('#power-feed').textContent(),/Leader targeted/);
   await preview.locator('.workbench').screenshot({path:`${out}/leader-${e.actor}.png`});
  }
