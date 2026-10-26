@@ -532,7 +532,7 @@ renderer.setAnimationLoop((now) => {
 });
 window.raceLab = {
   get race() { return race; },
-  get multiplayer(){return {managed:multiplayer?.managed??false,online:multiplayer?.online??false,room:multiplayer?.room?.code??null,frame:multiplayer?.frame()};},
+  get multiplayer(){return {managed:multiplayer?.managed??false,online:multiplayer?.online??false,room:multiplayer?.room?.code??null,frame:multiplayer?.frame(),playback:multiplayer?.playbackDiagnostics};},
   get audio(){return raceAudio.diagnostics;},
   get powers(){return powerView.diagnostics;},
   captureAudio:()=>raceAudio.captureStream(),

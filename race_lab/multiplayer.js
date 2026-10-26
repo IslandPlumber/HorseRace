@@ -1,3 +1,4 @@
+import {LivePlaybackClock} from './live-playback.js';
 import {WorkshopUI} from "./workshop.js";
 import {UPGRADES} from "./progression.js";
 import { betSlip, roundFromRoom, historyList } from "./bet-slips.js";
@@ -17,6 +18,7 @@ const HORSES = {
   snoop: "Snoop Dogg",
 };
 const TOKEN = "horserace-session-v1";
+const TIMING = Symbol('requestTiming');
 function saveToken(token) {
   try {
     if (token) localStorage.setItem(TOKEN, token);
@@ -57,6 +59,9 @@ export class MultiplayerUI {
     this.pendingPower = null;
     this.lastMePoll = 0;
     this.nextPoll = 0;
+    this.nextRoomPoll = 0;
+    this.liveClock = new LivePlaybackClock();
+    this.roomPollStats = {count:0,requestMs:0,gaps:[],lastStart:0};
     this.polling = false;
     this.history = [];
     this.historyVisible = 6;
@@ -197,8 +202,11 @@ export class MultiplayerUI {
     };
     document.addEventListener('keydown', this.powerShortcut);
     this.timer = setInterval(() => {
-      if (Date.now() >= this.nextPoll) void this.refresh();
-    }, 100);
+      if(this.room?.race?.phase==='racing' && this.roomCode){
+        if(performance.now()>=this.nextRoomPoll)void this.refreshLiveRoom();
+        if(Date.now()>=(this.auxRetryAt??0))void this.refreshAuxiliary();
+      }else if(Date.now()>=this.nextPoll)void this.refresh();
+    }, 50);
     this.bannerTimer = setInterval(() => { this.renderRaceBanner(); this.updateBettingControls(); this.renderAbility(); }, 100);
     void this.refresh();
   }
@@ -212,12 +220,7 @@ export class MultiplayerUI {
   frame() {
     const r = this.room?.race, now = Date.now() + this.offset, definition = r?.definition;
     let next = definition ? Math.max(0, Math.min(definition.duration, (now - r.starts) / 1000)) : 0;
-    if (definition?.live) {
-      // Confirmed playback has a small network buffer. We never extrapolate an
-      // unconfirmed winner or jump back when a later snapshot arrives.
-      next = Math.max(0, Math.min(definition.availableTime, next - .7));
-      if (this.frameId === r.id) next = Math.max(Math.min(this.frameTime ?? 0, definition.availableTime), next);
-    }
+    if (definition?.live) next=this.liveClock.frame();
     this.frameId = r?.id; this.frameTime = next;
     return {
       time: next,
@@ -227,7 +230,7 @@ export class MultiplayerUI {
     };
   }
   async api(route, body) {
-    const start = Date.now();
+    const start = Date.now(), startedAt=performance.now();
     const response = await fetch(new URL(`.${route}`, document.baseURI), {
       method: body === undefined ? "GET" : "POST",
       headers: {
@@ -251,6 +254,7 @@ export class MultiplayerUI {
       error.status = response.status;
       throw error;
     }
+    Object.defineProperty(result,TIMING,{value:{receivedAt:performance.now(),requestMs:performance.now()-startedAt}});
     if (result.serverTime) {
       this.offset = result.serverTime - (start + Date.now()) / 2;
       this.lastContact = Date.now();
@@ -296,44 +300,80 @@ export class MultiplayerUI {
   async refresh(force = false) {
     if (this.polling) return;
     this.polling = true;
+    const began=Date.now();
     try {
       if (this.token) {
-        if (force || !this.user || Date.now()-this.lastMePoll >= 2000 || this.room?.race?.phase !== 'racing') {
-          const me = await this.api('/api/me');
-          this.user = me.user; this.rules = me.rules;
-          this.roomCode = me.roomCode; this.lastMePoll = Date.now();
+        if(force||!this.user||Date.now()-this.lastMePoll>=5000){
+          const me=await this.api('/api/me');this.user=me.user;this.rules=me.rules;
+          this.roomCode=me.roomCode;this.lastMePoll=Date.now();
         }
-        this.acceptRoom(this.roomCode ? (await this.api(`/api/rooms/${this.roomCode}`)).room : null);
-        const key = JSON.stringify([this.user.id, this.user.coins, this.user.races, this.room?.race?.id, this.room?.race?.phase]);
-        if (key !== this.historyKey) {
-          await this.refreshHistory();
-          this.historyKey = key;
-        }
-        if (Date.now() - this.lastRoomPoll > 5000) await this.refreshRooms();
-      } else await this.api("/api/health");
-      this.online = true;
-      const r = this.room?.race;
-      await this.acceptDefinition(r);
-      this.render();
-      this.onChange();
-    } catch (e) {
-      this.online = false;
-      if (e.status === 401) this.resetSession();
-      if (force) {
-        throw e;
-      }
+        if(this.roomCode){const response=await this.api(`/api/rooms/${this.roomCode}`);this.acceptRoom(response.room,response);}
+        else this.acceptRoom(null);
+      }else await this.api('/api/health');
+      this.online=true;
+      // Publish the race immediately. Saved slips, wallet and directory fetching
+      // have their own lane and cannot hold a motion snapshot in a queue.
+      await this.acceptDefinition();this.render();this.onChange();
+      void this.refreshAuxiliary();
+    } catch(error){
+      this.online=Date.now()-this.lastContact<6000;
+      if(error.status===401)this.resetSession();
+      if(force)throw error;
       this.render();
     } finally {
-      this.polling = false;
-      this.nextPoll = Date.now() + (this.room?.race?.phase === 'racing' ? 500 : 1000);
+      this.polling=false;this.nextPoll=began+1000;
+      if(this.room?.race?.phase==='racing')this.nextRoomPoll=Math.min(this.nextRoomPoll,performance.now());
     }
   }
-  acceptRoom(room) {
+  async refreshLiveRoom(){
+    if(this.roomPolling||this.polling||!this.token||!this.roomCode)return;
+    this.roomPolling=true;
+    const began=performance.now(),token=this.token,code=this.roomCode;
+    const stats=this.roomPollStats;
+    if(stats.lastStart){stats.gaps.push(began-stats.lastStart);if(stats.gaps.length>120)stats.gaps.shift();}
+    stats.lastStart=began;stats.count++;
+    // A 300 ms deadline is measured from request start, not from the end of
+    // unrelated work. Slow networks keep at most one room fetch in flight.
+    this.nextRoomPoll=began+300;
+    try{
+      const response=await this.api(`/api/rooms/${code}`);
+      if(this.token!==token||this.roomCode!==code)return;
+      this.acceptRoom(response.room,response);this.online=true;
+      await this.acceptDefinition();this.render();this.onChange();
+      void this.refreshAuxiliary();
+    }catch(error){
+      if(error.status===401)this.resetSession();
+      this.online=Date.now()-this.lastContact<6000;this.render();
+    }finally{stats.requestMs=performance.now()-began;this.roomPolling=false;}
+  }
+  async refreshAuxiliary(){
+    if(this.auxPolling||!this.token||Date.now()<(this.auxRetryAt??0))return;
+    const token=this.token,key=JSON.stringify([this.user?.id,this.user?.coins,this.user?.races,this.room?.race?.id,this.room?.race?.phase]);
+    const jobs=[];
+    if(Date.now()-this.lastMePoll>=5000)jobs.push(this.api('/api/me').then(me=>{
+      if(this.token!==token)return;
+      this.user=me.user;this.rules=me.rules;this.roomCode=me.roomCode;this.lastMePoll=Date.now();
+    }));
+    if(Date.now()-this.lastRoomPoll>=5000)jobs.push(this.refreshRooms());
+    if(this.historyKey!==key)jobs.push(this.refreshHistory().then(()=>{this.historyKey=key;}));
+    if(!jobs.length)return;
+    this.auxPolling=true;
+    try{
+      const results=await Promise.allSettled(jobs);
+      if(this.token!==token)return;
+      if(results.some(r=>r.status==='rejected'&&r.reason.status===401)){this.resetSession();return;}
+      this.render();this.onChange();
+    }finally{this.auxPolling=false;this.auxRetryAt=Date.now()+500;}
+  }
+  acceptRoom(room,response) {
     const old=this.room?.race, next=room?.race;
     if (old?.id === next?.id && old?.definition?.live && next?.definition?.live &&
         ((old.revision??0) > (next.revision??0) || (old.revision??0) === (next.revision??0) && old.definition.availableTime > next.definition.availableTime)) room.race=old;
+    if(next?.phase==='results'&&old?.phase!=='results')this.lastMePoll=0;
     this.room=room;
+    if(room?.race?.definition?.live)this.liveClock.observe(room.race,{serverTime:response?.serverTime,...response?.[TIMING]});
   }
+  get playbackDiagnostics(){return {...this.liveClock.diagnostics,poll:{...this.roomPollStats,gaps:[...this.roomPollStats.gaps]},auxiliaryBusy:Boolean(this.auxPolling)};}
   async acceptDefinition(r = this.room?.race) {
     if (!r?.definition || this.loadingId === r.id) return;
     if (this.loaded === r.id) {
@@ -362,10 +402,10 @@ export class MultiplayerUI {
     try {
       const response = await this.api(`/api/rooms/${this.room.code}/power`, request);
       this.pendingPower = null;
-      this.acceptRoom(response.room);
+      this.acceptRoom(response.room,response);
       await this.acceptDefinition(); this.render(); this.onChange();
       // A room poll already in flight may predate this successful activation.
-      this.nextPoll = 0;
+      this.nextRoomPoll = 0;
     } catch(error) {
       // An uncertain network response keeps its request id, so tapping Retry
       // cannot consume a second charge if the first use reached the server.

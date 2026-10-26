@@ -97,6 +97,19 @@ upgraded round to an engine that ignores workshop levels.
 
 ## Save data and recovery
 
+Live motion has its own room-update lane, scheduled every 300ms from request
+start. Account, history and directory requests run independently. The browser
+uses a monotonic clock and an adaptive buffer starting at 1.15s, so a delayed
+sidebar response cannot repeatedly stop the horses. Clock corrections gently
+adjust playback speed; rendering stays within confirmed history. An actual
+network outage can still require rebuffering.
+
+`npm run test:smoothness` records continuous real-time browser frames with seven
+riders, manual moves and delayed auxiliary/room requests. It measures repeated
+motion plateaus separately from slow WebGL frames; use `SMOOTHNESS_FULL_APP=1`
+for optional hardware/render diagnostics. The default lightweight harness runs
+the actual multiplayer controller without requiring a fast GPU.
+
 Club races simulate the frozen entry skills through actual movement:
 Speed controls acceleration/cruising pace, Stamina reduces late fatigue, and
 Focus helps starts, corners and rhythm. Finish crossings determine the outcome.
