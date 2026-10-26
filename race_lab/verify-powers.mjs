@@ -6,13 +6,15 @@ import os from 'node:os';
 import path from 'node:path';
 import {Game} from './server/game.js';
 import {createServer} from './server/http.js';
-import {simulateRace} from './server/race-simulation.js';
+import {simulateRace,publicLiveRace} from './server/race-simulation.js';
 import {ACTOR_IDS,sampleRace} from './race-core.js';
 import {POWERS,powerEvents} from './powers.js';
 import {BET_TYPES,ticketReturn} from './betting.js';
 const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-powers-')),out='review/deployment/powers-local';
-await mkdir(out,{recursive:true});let offset=0;
-const game=new Game(path.join(dir,'game.sqlite'),{clock:()=>Date.now()+offset,bettingMs:30000});
+await mkdir(out,{recursive:true});let now=Date.now();
+const game=new Game(path.join(dir,'game.sqlite'),{clock:()=>now,bettingMs:30000});
+function advance(milliseconds){assert.ok(milliseconds>=0,'fixture time advances monotonically');now+=milliseconds;game.tick();}
+function advanceTo(code,seconds){const target=game.latest(code).starts+seconds*1000;advance(Math.max(0,target-now));}
 const server=createServer(game,{site:path.resolve('site')});await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const outside=[],errors=[],pages=[],report={checks:[]};
 const proxy=http.createServer((req,res)=>{
@@ -33,26 +35,53 @@ try{
  await b.locator('#mp-power-name').filter({hasText:'Hat Trick'}).waitFor();
  await a.locator('.signature-card summary').click();assert.equal(await a.locator('.signature-card details p').count(),7);
  await a.locator('#multiplayer').screenshot({path:`${out}/stable-desktop.png`});await b.locator('#multiplayer').screenshot({path:`${out}/stable-mobile.png`});
- report.checks.push('saved rider selection shows their power; all seven descriptions, CPU parity and automatic activation explained');
+ report.checks.push('saved rider selection shows their power; all seven descriptions, manual player timing and automatic CPU use explained');
  await a.locator('#mp-create').click();await a.locator('#mp-room-name').waitFor();const code=(await a.locator('#mp-room-name').textContent()).split(' ')[1];
  await b.locator('#mp-code').fill(code);await b.getByRole('button',{name:'Join room',exact:true}).click();await b.locator('#mp-members').filter({hasText:'PowerAlice'}).waitFor();
  await a.locator('#mp-start').click();await a.locator('#race-betting-banner[data-state=open]').waitFor();
  for(const p of[a,b]){await p.selectOption('#mp-bet-kind','show');await p.getByRole('button',{name:'Place bet',exact:true}).click();await p.locator('#mp-bet-note [data-bet-kind=show]').waitFor();}
- assert.equal(game.latest(code).definition,null);offset+=31000;game.tick();
+ assert.equal(game.latest(code).definition,null);advance(31000);
  await Promise.all([a,b].map(p=>p.waitForFunction(()=>window.raceLab.race.simulation?.powers&&window.raceLab.multiplayer.managed)));
- const race=JSON.parse(game.latest(code).definition);
- assert.deepEqual(await a.evaluate(()=>window.raceLab.race),await b.evaluate(()=>window.raceLab.race));assert.equal(powerEvents(race).length,7);
- const first=powerEvents(race).toSorted((a,b)=>a.time-b.time)[0];
- offset=game.latest(code).starts+(first.time+.2)*1000-Date.now();game.tick();
+ let race=JSON.parse(game.latest(code).definition);
+ assert.equal(powerEvents(race).length,5,'only the five CPU riders cast automatically');
+ assert.ok(powerEvents(race).every(e=>!['elon','trump'].includes(e.actor)));
+ for(const p of [a,b]) {
+  const live=await p.evaluate(()=>window.raceLab.race);
+  assert.equal(live.live,true);assert.equal(live.seed,'live');assert.deepEqual(live.outcome,[]);
+ }
+ advanceTo(code,10);
+ for(const [p,actor] of [[a,'elon'],[b,'trump']]) {
+  await p.waitForFunction(()=>document.querySelector('#race-use-power')?.disabled===false);
+  await p.locator('#race-use-power').click();
+  // The server schedules the move on the next physical step. Confirm the
+  // accepted request first, then explicitly advance this disposable clock.
+  await p.locator('#race-ability-status').filter({hasText:'All charges used'}).waitFor();
+  advance(250);
+  await p.waitForFunction(actor=>window.raceLab.race.events.some(e=>e.actor===actor),actor);
+ }
+ await Promise.all([a,b].map(p=>p.waitForFunction(()=>['elon','trump'].every(id=>window.raceLab.race.events.some(e=>e.actor===id)))));
+ race=JSON.parse(game.latest(code).definition);
+ assert.equal(game.powerUses(race.id).length,2);assert.equal(powerEvents(race).length,7);
+ const snapshots=await Promise.all([a,b].map(p=>p.evaluate(()=>window.raceLab.race)));
+ const common=Math.min(...snapshots.map(r=>r.availableTime));
+ assert.deepEqual(sampleRace(snapshots[0],common),sampleRace(snapshots[1],common));
+ for(const snapshot of snapshots)assert.deepEqual(snapshot,publicLiveRace(race,snapshot.availableTime,{id:race.id,revision:2}));
+ // Jump to a later CPU cast after both player requests are confirmed. The
+ // deterministic imported fixtures below still inspect every exact impact.
+ const first=powerEvents(race).filter(e=>!['elon','trump'].includes(e.actor)).toSorted((a,b)=>a.time-b.time)[0];
+ advanceTo(code,first.time+.7);
  await Promise.all([a,b].map(p=>p.waitForFunction(id=>window.raceLab.race.events.some(e=>e.actor===id&&e.time<=window.raceLab.time),first.actor)));
  for(const p of[a,b]){assert.ok(await p.locator('#power-feed').isVisible());assert.match(await p.locator('#power-feed').textContent(),new RegExp(POWERS[first.actor].name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));}
  await a.locator('#race-preview').screenshot({path:`${out}/live-power.png`});
  await b.reload();await b.locator('#mp-name').filter({hasText:'PowerBobby'}).waitFor();
  await b.waitForFunction(id=>window.raceLab?.ready&&window.raceLab.race.id===id,race.id);
  assert.equal(await a.locator('#power-volume').inputValue(),'70');
- assert.deepEqual(await b.evaluate(()=>window.raceLab.race),race);
- report.checks.push('two players receive identical seven-power timeline after cutoff; active props/feed and reload preserve the same race');
- offset+=70000;game.tick();await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
+ const restored=await b.evaluate(()=>window.raceLab.race);
+ assert.equal(restored.live,true);assert.equal(restored.seed,'live');assert.deepEqual(restored.outcome,[]);
+ assert.deepEqual(restored,publicLiveRace(race,restored.availableTime,{id:race.id,revision:2}));
+ assert.equal(restored.events.filter(e=>['elon','trump'].includes(e.actor)).length,2);
+ report.checks.push('both players manually use their own power; causal snapshots agree at a common confirmed time; CPU props/feed and reload preserve accepted actions without exposing future results');
+ advanceTo(code,120);await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
  for(const name of['PowerAlice','PowerBobby']){
   const user=game.one('SELECT id FROM users WHERE username=?',name),room=game.room(user.id,code),me=game.profile(user.id);
   const finish=room.race.results.find(e=>e.userId===user.id),ticket=room.race.bets[0],place=room.race.results.find(r=>r.horse===ticket.horse).place;

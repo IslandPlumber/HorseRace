@@ -1,9 +1,10 @@
 # Training and shared race simulation
 
-Club races use the server-owned `skills-v6-workshop` model in `server/race-simulation.js`.
+Club races use the server-owned `skills-v7-live` model in `server/race-simulation.js`.
 The server simulates distance, acceleration, pace, cornering and fatigue, then
-derives the finishing order from actual finish crossings. It saves that complete
-timeline once when betting closes. Every browser plays the same saved motion.
+derives the finishing order from actual finish crossings. Players activate powers
+during the race; accepted actions change subsequent movement. Every browser plays
+the same confirmed motion, with a small buffer for network updates.
 Practice examples retain their scripted scenarios.
 
 ## Three different skills
@@ -20,7 +21,8 @@ Practice examples retain their scripted scenarios.
   by 6%, up to 30% at maximum. Rhythm losses slow the target temporarily; horses
   decelerate and recover rather than teleporting or stopping abruptly.
 
-Every rider also has one automatic signature power per race; see [POWERS.md](POWERS.md).
+Every player chooses when to use their signature power; CPUs use theirs
+automatically. See [POWERS.md](POWERS.md).
 The Upgrades tab adds 20 specialist horse, tack, power and stable paths plus repeatable mastery. See [PROGRESSION.md](PROGRESSION.md). Original training mechanics and prices are unchanged.
 
 These effects combine through movement; they are not flat additions to win odds.
@@ -30,9 +32,10 @@ CPU entrants at level zero. The current course is one lap with four turns; outer
 lanes do not receive a hidden training or distance advantage.
 
 The model integrates in 0.125-second steps before converting to the shared round
-clock. One clock scale applies to the whole field. Timelines are simplified to
-within 4 cm while preserving gate/reaction and finish boundaries. All horses
-finish within the scheduled maximum slot, and the round closes up to 1.25 seconds
+clock. One fixed clock scale applies to the whole field, independent of later
+power choices. Live timelines retain canonical motion samples so later actions
+cannot alter past playback. The maximum slot leaves room for late attacks,
+and the round closes up to 1.25 seconds
 after the last crossing. No finishing order is selected in advance of simulation.
 Leg animation and individual continuous hoof voices integrate the same distances
 using one stride distance across the field, so faster pace produces faster steps.
@@ -48,10 +51,12 @@ round ends. Betting on another entrant does not transfer training to it.
 
 Randomness is independently seeded per horse. Changing one skill in a repeatable
 comparison does not reroll another horse's form. The production seed is generated
-on the server after betting closes. Clients cannot submit seeds or skills.
+privately on the server when the round is created. Clients cannot submit or
+read that seed, choose activation timestamps, or submit skills.
 Saved race definitions from previous engines still play and settle unchanged.
-Pending rounds recover their persisted timing slot after restart; prepared rounds
-reuse their saved timeline, with no reroll and no duplicate settlement.
+Pending rounds recover their persisted timing and accepted activation log after
+restart, with no reroll and no duplicate settlement. While racing, clients receive
+only confirmed progress and events; the seed and future outcome stay private.
 
 ## Validation and balancing
 

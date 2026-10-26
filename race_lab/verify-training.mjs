@@ -6,12 +6,14 @@ import os from 'node:os';
 import path from 'node:path';
 import {Game} from './server/game.js';
 import {createServer} from './server/http.js';
-import {simulateRace} from './server/race-simulation.js';
+import {simulateLiveRace} from './server/race-simulation.js';
 import {sampleRace} from './race-core.js';
 const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-training-'));
 const out='review/deployment/training/browser';await mkdir(out,{recursive:true});
-let offset=0;
-const game=new Game(path.join(dir,'game.sqlite'),{clock:()=>Date.now()+offset,bettingMs:20000});
+// Browser rendering can take several real seconds on a busy machine. Advance
+// only this disposable game's clock so screenshots cannot race settlement.
+let now=Date.now();
+const game=new Game(path.join(dir,'game.sqlite'),{clock:()=>now,bettingMs:20000});
 const server=createServer(game,{site:path.resolve('site')});await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const outside=[];
 const proxy=http.createServer((req,res)=>{
@@ -38,17 +40,22 @@ try{
  await b.locator('#mp-code').fill(code);await b.getByRole('button',{name:'Join room',exact:true}).click();await b.locator('#mp-members').filter({hasText:'Alice'}).waitFor();await a.locator('#mp-start').click();
  await b.locator('#mp-bet-form').waitFor();await b.getByRole('button',{name:'Place bet',exact:true}).click();await b.locator('#mp-bet-note').filter({hasText:'Locked in'}).waitFor();
  assert.equal(game.latest(code).definition,null);for(const p of[a,b])for(const button of await p.locator('#mp-upgrades button').all())assert.ok(await button.isDisabled());
- offset+=21000;game.tick();await Promise.all([a,b].map(p=>p.waitForFunction(()=>window.raceLab.multiplayer.managed&&window.raceLab.state==='playing'&&window.raceLab.race.simulation?.model==='skills-v6-workshop')));
- const def=JSON.parse(game.latest(code).definition);assert.deepEqual(def.cast.find(r=>r.id==='elon').skills,{speed:2,stamina:1,focus:1});assert.deepEqual(await a.evaluate(()=>window.raceLab.race),await b.evaluate(()=>window.raceLab.race));
- const replay=simulateRace(def.seed,{entrants:JSON.parse(game.latest(code).entrants),title:def.title});replay.id=def.id;assert.deepEqual(replay,def);
- assert.deepEqual(sampleRace(def,64).standings,def.outcome);report.checks.push('purchased levels frozen into the same server-simulated timeline in both browsers; actual crossings determine outcome');
+ now+=30000;game.tick();await Promise.all([a,b].map(p=>p.waitForFunction(()=>window.raceLab.multiplayer.managed&&window.raceLab.state==='playing'&&window.raceLab.race.simulation?.model==='skills-v7-live')));
+ const def=JSON.parse(game.latest(code).definition);assert.deepEqual(def.cast.find(r=>r.id==='elon').skills,{speed:2,stamina:1,focus:1});
+ const snapshots=await Promise.all([a,b].map(p=>p.evaluate(()=>window.raceLab.race))),common=Math.min(...snapshots.map(r=>r.availableTime));
+ assert.equal(snapshots[0].id,snapshots[1].id);for(const r of snapshots){assert.equal(r.seed,'live');assert.deepEqual(r.outcome,[]);}
+ const states=snapshots.map(r=>sampleRace(r,common));assert.deepEqual(states[0].standings,states[1].standings);assert.deepEqual(states[0].runners.map(({id,distance,rank})=>({id,distance,rank})),states[1].runners.map(({id,distance,rank})=>({id,distance,rank})),'independent polls agree at their common confirmed boundary');
+ const live=game.one('SELECT * FROM live_races WHERE race_id=?',def.id);
+ const replay=simulateLiveRace(live.seed,{entrants:JSON.parse(game.latest(code).entrants),duration:live.duration,title:def.title,activations:[]});replay.id=def.id;assert.deepEqual(replay,def);
+ assert.equal(def.events.filter(e=>['elon','snoop'].includes(e.actor)).length,0,'human abilities wait for player input');
+ assert.deepEqual(sampleRace(def,def.duration).standings,def.outcome);report.checks.push('purchased levels frozen into the same causal server-simulated motion in both browsers; hidden future result and manual human powers; actual crossings determine outcome');
  await a.waitForFunction(()=>window.raceLab.audio.playing&&window.raceLab.audio.horseVoices===7);
  report.audio=await a.evaluate(()=>window.raceLab.audio);assert.ok(report.audio.activeSources<35,'dense timeline still has only one continuous hoof source per horse');
- offset+=24000;game.tick();await a.waitForFunction(()=>window.raceLab.time>24);
+ now+=15000;game.tick();await a.waitForFunction(()=>window.raceLab.time>24);
  await a.selectOption('#camera-mode','aerial');await a.locator('#race-preview').screenshot({path:`${out}/simulated-race.png`});
  const labels=await a.locator('.rider-sub').allTextContents();assert.ok(labels.some(s=>/Focus|Speed|Stamina|rhythm/.test(s)));report.labels=labels;
  report.checks.push('live skill/rhythm explanations and bounded per-horse hoof audio with dense motion');
- offset+=64000;game.tick();await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
+ now+=64000;game.tick();await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
  const before=game.profile(id);const race=game.room(id,code).race;assert.deepEqual(race.results.map(r=>r.horse),def.outcome);assert.equal(before.coins,210+race.results.find(r=>r.userId===id).prize);
  await a.reload();await a.locator('#mp-name').filter({hasText:'Alice'}).waitFor();assert.deepEqual(game.profile(id),before);
  assert.equal(await a.locator('meter[aria-label="Speed level"]').getAttribute('value'),'2');

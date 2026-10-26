@@ -137,7 +137,7 @@ export function createServer(
             break;
           default: {
             const match = url.pathname.match(
-              /^\/api\/rooms\/([A-Fa-f0-9]{6})(?:\/(join|leave|start|bets))?$/,
+              /^\/api\/rooms\/([A-Fa-f0-9]{6})(?:\/(join|leave|start|bets|power))?$/,
             );
             if (!match) throw new GameError("Not found.", 404);
             const code = match[1].toUpperCase(),
@@ -150,8 +150,9 @@ export function createServer(
                 requireMembership();
                 game.leave(id);
               } else if (action === "start") game.start(id, code);
+              else if(action==="power")game.power(id,code,body.raceId,body.requestId);
               else game.bet(id, code, body.horse, body.stake, body.kind);
-              result = { code };
+              result = action==="power"?{code,room:game.room(id,code)}:{code};
             } else throw new GameError("Not found.", 404);
             function requireMembership() {
               if (game.membership(id) !== code)

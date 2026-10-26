@@ -4,7 +4,7 @@ export const POWERS = Object.freeze({
     description: 'A spinning red hat distracts up to three nearby rivals. A little victory surge for the thrower.',
     boost: .08, duration: 2.8, slow: .18, hitDuration: 1.6, radius: 16, targets: 3 },
   elon: { name: 'Totally Normal Rocket', icon: 'BOOST', color: '#78d7ff', effect: 'rocket',
-    description: 'A tiny saddle rocket delivers a short burst of speed. Launch window: whenever the horse feels like it.',
+    description: 'A tiny saddle rocket delivers a short burst of speed. You choose the launch window.',
     boost: .24, duration: 2.8 },
   biden: { name: 'Ice Cream Express', icon: 'SCOOP', color: '#ffcfdb', effect: 'icecream',
     description: 'An ice-cream cone appears just ahead. Suddenly there is somewhere very important to be.',
@@ -37,7 +37,7 @@ export function activePowerEffects(race, id, time) {
 
 export function powerStatus(race, id, time, finished=false) {
   if (!race?.simulation?.powers) return '';
-  if(finished)return `${POWERS[id].name} · used`;
+  if(finished)return `${POWERS[id].name} · finished`;
   const active = activePowerEffects(race, id, time);
   const impact = active.find(e => e.kind === 'slow' && e.event.impact);
   if (impact) return `${impact.event.actor === 'gordon' ? 'BONK!' : 'Filibustered!'} · Regaining stride`;
@@ -46,7 +46,10 @@ export function powerStatus(race, id, time, finished=false) {
   const hit = active.find(e => e.kind !== 'boost');
   if (hit) return hit.kind === 'assist' ? 'Mitten boost!' : `${POWERS[hit.event.actor].name} · slowed`;
   const moves=powerEvents(race).filter(e=>e.actor===id),used=moves.filter(e=>time>=e.time).length;
-  return `${POWERS[id].name} · ${used&&used<moves.length?'reserve ready':used?'used':'ready'}`;
+  const charges=(race.cast.find(r=>r.id===id)?.upgrades?.powerReserve??0)>=5?2:1;
+  const latest=moves.filter(e=>time>=e.time).at(-1);
+  const cooling=race.simulation.manualPowers&&used<charges&&latest&&time<latest.time+Math.max(latest.duration,race.simulation.cooldown??4);
+  return `${POWERS[id].name} · ${cooling?'recharging':used&&used<charges?'reserve ready':used?'used':'ready'}`;
 }
 
 /** Pure replay-time reaction; seeking never leaves a horse tilted or airborne. */

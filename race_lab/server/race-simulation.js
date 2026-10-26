@@ -6,6 +6,8 @@ import {normalizeUpgrades,masteryPace} from '../progression.js';
 // A versioned, server-owned simulation. All clients receive the same persisted
 // distance timeline; finish order is measured from its crossings, never drawn.
 export const SIMULATION_VERSION = "skills-v6-workshop";
+export const LIVE_SIMULATION_VERSION = "skills-v7-live";
+export const LIVE_POWER_COOLDOWN = 4;
 const STEP = 0.125;
 const WINDOW = 68;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -85,7 +87,7 @@ function makeHorse(seed, entrant, lane, track) {
     reserveAt:.82+powerRandom()*.08,uses:0,charges:level('powerReserve')>=5?2:1,effects: [] };
 }
 
-function runField(seed, entrants, lanes, track, powers) {
+function runField(seed, entrants, lanes, track, powers, manual = null) {
   const horses = entrants.map((e, i) => makeHorse(seed, e, lanes[i], track));
   const events = [];
   for (let time = 0; time < 120 && horses.some(h => !h.finish); time += STEP) {
@@ -158,7 +160,8 @@ function runField(seed, entrants, lanes, track, powers) {
     };
     const finished = horse => horse.finish !== undefined && horse.finish<=time;
     const firing = powers ? horses.filter(h => h.uses<h.charges && !finished(h) &&
-      sharedDistance(h) >= track.length * h.powerAt).sort((a,b) => a.id.localeCompare(b.id)) : [];
+      (manual?.has(h.id) ? (manual.get(h.id)[h.uses] ?? Infinity) <= time + 1e-8 :
+        sharedDistance(h) >= track.length * h.powerAt)).sort((a,b) => a.id.localeCompare(b.id)) : [];
     for (const h of firing) {
       const base=POWERS[h.id],level=kind=>h.upgrades[kind]??0;
       const strength=(1+level('powerPotency')*.02)*(h.uses ? .65 : 1),duration=1+level('powerDuration')*.025;
@@ -209,7 +212,7 @@ function runField(seed, entrants, lanes, track, powers) {
         targeting: p.targeting ?? (p.assist ? 'last' : p.slow ? 'nearby' : 'self'), impact: p.shock ?? 0, targetEnds, detail,
         text: `${p.name}${/[!?]$/.test(p.name) ? '' : '!'} ${detail}`});
     }
-    if (firing.length) for(const horse of horses) {
+    if (firing.length && !manual) for(const horse of horses) {
       const b=horse.points.at(-1);
       if(b.time<time)continue;
       if(b.time===time){b.boundary=true;continue;}
@@ -270,4 +273,139 @@ export function simulateRace(seed, { entrants, duration = 64, title = "Club race
   return validateRace({ version: 1, id: `skills-${String(seed).slice(0, 75)}`,
     title, seed, duration: end, startDelay, track, cast, outcome, events: raceEvents,
     simulation: { model: SIMULATION_VERSION, powers, step: STEP, nominalSpeed: track.length / ((duration - startDelay) * 0.8) } });
+}
+
+
+/**
+ * A live field uses the same physical model, but the clock scale is fixed before
+ * the gates open. Human casts are inputs on that clock, not preselected moments.
+ * The complete projection is private server state. Only publicLiveRace may be
+ * sent to players while a race is underway.
+ */
+export function simulateLiveRace(seed, { entrants, duration = 64, title = "Club race", activations = [] } = {}) {
+  if (!(typeof seed === "string" || typeof seed === "number" && Number.isFinite(seed)))
+    throw Error("Race seed must be a string or finite number.");
+  if (!Array.isArray(entrants) || !entrants.length || entrants.length > ACTOR_IDS.length ||
+      entrants.some(e => !ACTOR_IDS.includes(e.horse)) ||
+      new Set(entrants.map(e => e.horse)).size !== entrants.length)
+    throw Error("Race entrants must have unique, known horses.");
+  if (!Number.isFinite(duration) || duration < 2 || duration > 120)
+    throw Error("Race duration must be between 2 and 120 seconds.");
+  if (!Array.isArray(activations)) throw Error("Live activations must be an array.");
+  const track = makeCircuit(), startDelay = Math.min(7, duration * .14);
+  const scale = (duration - startDelay) / WINDOW;
+  const tail = Math.min(1.25, duration * .02);
+  // The generous fixed horizon accommodates even repeated heavy hits without
+  // changing the speed of any already displayed motion. Settlement uses actual
+  // crossings, rather than waiting for this upper bound.
+  const end = startDelay + 120 * scale + tail;
+  const random = randomSource(`${typeof seed}:${seed}:lanes`);
+  const lanes = entrants.map((_, i) => i);
+  for (let i = lanes.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
+  }
+  const manual = new Map(entrants.filter(e => e.userId).map(e => [e.horse, []]));
+  for (const input of activations) {
+    if (!input || !manual.has(input.actor) || !Number.isFinite(input.time) ||
+        input.time < startDelay || input.time >= end)
+      throw Error("Invalid live activation.");
+    const times = manual.get(input.actor);
+    const entrant = entrants.find(e => e.horse === input.actor);
+    const charges = (normalizeUpgrades(entrant.upgrades).powerReserve ?? 0) >= 5 ? 2 : 1;
+    if (times.length >= charges || times.length && input.time - (startDelay + times.at(-1) * scale) < LIVE_POWER_COOLDOWN - 1e-8)
+      throw Error("Live activation exceeds charges or cooldown.");
+    // API inputs normally come from nextLiveActivationTime. Quantize defensively
+    // so replaying persisted input cannot depend on substep arrival timing.
+    const raw = Math.ceil(((input.time - startDelay) / scale) / STEP - 1e-8) * STEP;
+    times.push(raw);
+  }
+  const {horses, events} = runField(seed, entrants, lanes, track, true, manual);
+  const cast = horses.map(h => {
+    const finish = startDelay + h.finish * scale;
+    if (finish >= end) throw Error("Live race exceeded its fixed horizon.");
+    return {
+      id: h.id, lane: h.lane, skills: h.skills, upgrades: h.upgrades,
+      moments: h.incidents.filter(e => e.start !== undefined).map(e => ({
+        kind: "rhythm", time: startDelay + e.start * scale,
+        end: Math.min(finish, startDelay + e.end * scale),
+      })),
+      // Do not compress against future endpoints. Every canonical historical
+      // segment stays byte-for-byte identical after a newly submitted action.
+      progress: [{time: 0, distance: 0}, {time: startDelay, distance: 0},
+        ...h.points.slice(1).map(p => ({time: startDelay + p.time * scale, distance: p.distance})),
+        {time: end, distance: track.length + (end - finish) * track.length / 100}],
+    };
+  });
+  const outcome = [...horses].sort((a,b) => a.finish - b.finish).map(h => h.id);
+  const raceEvents = events.map(e => ({...e,
+    time: startDelay + e.time * scale,
+    duration: Math.min(e.duration * scale, end - startDelay - e.time * scale),
+    hitTime: startDelay + e.hitTime * scale,
+    hitDuration: Math.min(e.hitDuration * scale, end - startDelay - e.hitTime * scale),
+    targetEnds: Object.fromEntries(Object.entries(e.targetEnds).map(([id,t]) => [id, Math.min(end, startDelay + t * scale)])),
+  }));
+  return validateRace({version: 1, id: `live-${String(seed).slice(0,75)}`, title, seed,
+    duration: end, startDelay, track, cast, outcome, events: raceEvents,
+    simulation: {model: LIVE_SIMULATION_VERSION, powers: true, manualPowers: true,
+      step: STEP, stepSeconds: STEP * scale, scale, settleTail: tail,
+      cooldown: LIVE_POWER_COOLDOWN, nominalSpeed: track.length / ((duration - startDelay) * .8)},
+  });
+}
+
+export function nextLiveActivationTime(definition, elapsed) {
+  const step = definition.simulation?.stepSeconds;
+  if (!(Number.isFinite(step) && step > 0 && Number.isFinite(elapsed)))
+    throw Error("Expected a live definition and elapsed time.");
+  const start = definition.startDelay ?? 0;
+  return start + (Math.floor(Math.max(0, elapsed - start) / step + 1e-8) + 1) * step;
+}
+
+function finishCrossing(runner, length) {
+  for (let i=1; i<runner.progress.length; i++) {
+    const a=runner.progress[i-1], b=runner.progress[i];
+    if (a.distance < length && b.distance >= length)
+      return a.time + (length-a.distance) * (b.time-a.time) / (b.distance-a.distance);
+  }
+  return Infinity;
+}
+
+export function raceFinishedAt(definition) {
+  return Math.min(definition.duration, Math.max(...definition.cast.map(r => finishCrossing(r, definition.track.length))) +
+    (definition.simulation?.settleTail ?? Math.min(1.25, definition.duration * .02)));
+}
+
+/** Publish only history that has already happened on the server clock. */
+export function publicLiveRace(definition, elapsed, {id = "live-race", revision = 0} = {}) {
+  const finishedAt = raceFinishedAt(definition), completed = elapsed >= finishedAt;
+  const start = definition.startDelay ?? 0, step = definition.simulation.stepSeconds;
+  const requested = clamp(elapsed, 0, completed ? finishedAt : definition.duration);
+  const cutoff = completed ? finishedAt : requested < start ? requested :
+    Math.min(requested, start + Math.floor((requested - start) / step + 1e-8) * step);
+  const cast = definition.cast.map(runner => {
+    const progress = runner.progress.filter(p => p.time <= cutoff).map(p => ({...p}));
+    if (progress.at(-1).time < cutoff) {
+      const next = runner.progress.find(p => p.time > cutoff), previous = progress.at(-1);
+      progress.push({time: cutoff, distance: previous.distance +
+        (next.distance - previous.distance) * (cutoff - previous.time) / (next.time - previous.time)});
+    }
+    return {...runner, progress, moments: (runner.moments ?? []).filter(m => m.time <= cutoff)
+      .map(m => ({...m, end: Math.min(m.end, cutoff)}))};
+  });
+  return validateRace({version: 1, id, title: definition.title, seed: "live",
+    live: true, completed, availableTime: cutoff, revision,
+    duration: completed ? finishedAt : definition.duration, startDelay: start,
+    track: definition.track, cast, outcome: completed ? [...definition.outcome] : [],
+    events: definition.events.filter(e => e.time <= cutoff).map(e => ({...e,
+      duration: Math.min(e.duration, (completed ? finishedAt : definition.duration) - e.time),
+      hitDuration: Math.min(e.hitDuration, (completed ? finishedAt : definition.duration) - e.hitTime),
+      targets: [...e.targets], targetEnds: Object.fromEntries(Object.entries(e.targetEnds).map(([actor,end]) =>
+        [actor, Math.min(end, completed ? finishedAt : definition.duration)])),
+    })),
+    // Explicit allowlist: never spread private seed, activation schedule, or
+    // any future result metadata into a room response.
+    simulation: {model: definition.simulation.model, powers: true, manualPowers: true,
+      step: definition.simulation.step, stepSeconds: step,
+      cooldown: definition.simulation.cooldown, nominalSpeed: definition.simulation.nominalSpeed},
+  });
 }

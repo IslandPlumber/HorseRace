@@ -53,13 +53,16 @@ try{
  await a.locator('#mp-start').click();await a.locator('#race-betting-banner[data-state=open]').waitFor();
  await a.locator('#mp-tab-upgrades').click();for(const group of['horse','tack','power','stable']){await a.locator(`[data-group=${group}]`).click();for(const button of await a.locator('.workshop-card button').all())assert.ok(await button.isDisabled());}
  assert.equal((await api(a,'/api/upgrades',{kind:'stride',level:0})).status,400);await a.locator('#race-place-bet').click();assert.equal(await a.locator('#mp-tab-live').getAttribute('aria-selected'),'true');
- await a.locator('.racer-builds summary').click();assert.match(await a.locator('#mp-racer-builds').textContent(),/two automatic powers/);
+ await a.locator('.racer-builds summary').click();assert.match(await a.locator('#mp-racer-builds').textContent(),/two player-triggered powers/);
  const before=[];for(const p of[a,b,v])before.push((await api(p,'/api/me')).data.user);
  for(const p of[a,b])for(const kind of['win','place','show']){await p.selectOption('#mp-bet-kind',kind);await p.locator('#mp-stake').fill('10');await p.getByRole('button',{name:'Place bet',exact:true}).click();await p.locator(`#mp-bet-note [data-bet-kind=${kind}]`).waitFor();}
- offset+=31000;game.tick();await Promise.all([a,b,v].map(p=>p.waitForFunction(()=>window.raceLab.race.simulation?.model==='skills-v6-workshop'&&window.raceLab.multiplayer.managed)));
+ offset+=40000;game.tick();await Promise.all([a,b,v].map(p=>p.waitForFunction(()=>window.raceLab.race.simulation?.model==='skills-v7-live'&&window.raceLab.multiplayer.managed)));
+ const first=await api(v,`/api/rooms/${code}/power`,{raceId:game.latest(code).id,requestId:'workshop-reserve-first'});assert.equal(first.status,200);
+ offset+=5000;game.tick();const second=await api(v,`/api/rooms/${code}/power`,{raceId:game.latest(code).id,requestId:'workshop-reserve-second'});assert.equal(second.status,200);
  const definition=JSON.parse(game.latest(code).definition);assert.equal(definition.events.filter(e=>e.actor==='gordon').length,2);
  for(const user of before)assert.deepEqual(definition.cast.find(r=>r.id===user.horse).upgrades,user.upgrades);
- assert.deepEqual(await a.evaluate(()=>window.raceLab.race),await b.evaluate(()=>window.raceLab.race));
+ await Promise.all([a,b,v].map(p=>p.waitForFunction(()=>window.raceLab.race.events.filter(e=>e.actor==='gordon').length===2)));
+ for(const p of[a,b]){const live=await p.evaluate(()=>window.raceLab.race);assert.equal(live.seed,'live');assert.deepEqual(live.outcome,[]);assert.deepEqual(live.cast.map(r=>r.upgrades),definition.cast.map(r=>r.upgrades));}
  report.checks.push('purchases locked during betting; shortcut returns from Upgrades to bets; frozen public builds and synchronized upgraded timeline with two Gordon casts');
  offset+=70000;game.tick();await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
  const profiles=[];
@@ -67,7 +70,7 @@ try{
   const user=(await api(p,'/api/me')).data.user,room=(await api(p,`/api/rooms/${code}`)).data.room,finish=room.race.results.find(r=>r.userId===user.id),returns=room.race.bets.reduce((n,b)=>n+b.payout,0);
   assert.equal(finish.prize,finishPrize(RULES.prizes[finish.place-1],before[i].upgrades));assert.equal(user.coins,before[i].coins-(i<2?30:0)+returns+finish.prize);profiles.push(user);
  }
- const restored=new Game(path.join(dir,'game.sqlite'),{clock});try{for(const user of profiles)assert.deepEqual(restored.profile(user.id),user);assert.deepEqual(restored.room(profiles[0].id,code).race.definition,definition);restored.tick();for(const user of profiles)assert.deepEqual(restored.profile(user.id),user);}finally{restored.close();}
+ const restored=new Game(path.join(dir,'game.sqlite'),{clock});try{for(const user of profiles)assert.deepEqual(restored.profile(user.id),user);assert.deepEqual(JSON.parse(restored.latest(code).definition),definition);restored.tick();for(const user of profiles)assert.deepEqual(restored.profile(user.id),user);}finally{restored.close();}
  for(const p of[a,b,v])await api(p,`/api/rooms/${code}/leave`,{});await a.waitForFunction(()=>!window.raceLab.multiplayer.managed);
  await a.evaluate(async def=>window.raceLab.loadRace(def),definition);const reserve=definition.events.find(e=>e.actor==='gordon'&&e.charge===2);await a.evaluate(t=>window.raceLab.seek(t),reserve.time+.1);assert.ok((await a.evaluate(()=>window.raceLab.powers.active)).includes('gordon'));await a.locator('#race-preview').screenshot({path:`${out}/reserve-replay.png`});
  await a.locator('#mp-tab-live').click();await a.selectOption('#mp-horse','gordon');await a.getByRole('button',{name:'Save choice',exact:true}).click();await a.waitForFunction(()=>!document.querySelector('#mp-horse').disabled);await a.locator('#mp-tab-upgrades').click();await a.locator('[data-group=power]').click();assert.match(await a.locator('[data-upgrade=powerPotency] h4').textContent(),/Cast-iron/);assert.match(await a.locator('[data-upgrade=powerPotency] .workshop-level').textContent(),/Level 1/);

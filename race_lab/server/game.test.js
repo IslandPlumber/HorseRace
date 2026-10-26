@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Game, RULES } from "./game.js";
 import { createServer } from "./http.js";
-import { simulateRace } from "./race-simulation.js";
+import { simulateLiveRace, raceFinishedAt } from "./race-simulation.js";
 import { generateRace } from "../race-core.js";
 function fixture(t) {
   const dir = mkdtempSync(path.join(tmpdir(), "horserace-test-"));
@@ -32,17 +32,22 @@ test("race simulation uses frozen purchased levels and survives a restart withou
   });
   advance(1001); g.tick();
   const def = g.room(a.user.id, code).race.definition;
-  assert.equal(def.simulation.model, 'skills-v6-workshop');
-  assert.equal(def.events.filter(e=>e.power).length,7);
-  const replay = simulateRace(def.seed, {entrants: entries, duration: 10, title: def.title});
+  assert.equal(def.simulation.model, 'skills-v7-live');
+  assert.equal(def.live, true);
+  assert.equal(def.seed, 'live');
+  assert.deepEqual(def.outcome, []);
+  assert.equal(def.events.length,0);
+  const live=g.one('SELECT * FROM live_races WHERE race_id=?',def.id);
+  const replay = simulateLiveRace(live.seed, {entrants: entries, duration: 10, title: def.title});
   replay.id = def.id;
-  assert.deepEqual(replay, def);
-  assert.equal(g.latest(code).ends, g.latest(code).starts + def.duration * 1000);
+  assert.deepEqual(replay, JSON.parse(g.latest(code).definition));
+  assert.equal(replay.events.filter(e=>e.power&&e.actor==='elon').length,0);
+  assert.equal(g.latest(code).ends, g.latest(code).starts + raceFinishedAt(replay) * 1000);
   const restored = new Game(db, {clock});
   try {
     assert.deepEqual(restored.room(a.user.id, code).race.definition, def);
     advance(10000); restored.tick();
-    assert.deepEqual(restored.room(a.user.id, code).race.results.map(r => r.horse), def.outcome);
+    assert.deepEqual(restored.room(a.user.id, code).race.results.map(r => r.horse), replay.outcome);
     const profile = restored.profile(a.user.id); restored.tick();
     assert.deepEqual(restored.profile(a.user.id), profile);
     assert.equal(profile.speed, 1); assert.equal(profile.stamina, 1); assert.equal(profile.focus, 1);
@@ -54,6 +59,7 @@ test("older stored race definitions keep their outcome and payouts after an engi
   const code = g.create(a.user.id); g.start(a.user.id, code);
   const r = g.latest(code), old = generateRace('legacy-in-flight', {duration: 10});
   old.id = r.id;
+  g.run('DELETE FROM live_races WHERE race_id=?',r.id);
   g.run("UPDATE races SET phase='racing',definition=? WHERE id=?", JSON.stringify(old), r.id);
   advance(12000);
   const restored = new Game(db, {clock});

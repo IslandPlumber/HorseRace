@@ -39,7 +39,8 @@ function options(select) {
   }
 }
 export class MultiplayerUI {
-  constructor({ load, onChange }) {
+  constructor({ load, update, onChange }) {
+    this.update = update ?? load;
     this.load = load;
     this.onChange = onChange;
     this.token = storedToken();
@@ -52,6 +53,10 @@ export class MultiplayerUI {
     this.loaded = null;
     this.loadingId = null;
     this.busy = false;
+    this.powerBusy = false;
+    this.pendingPower = null;
+    this.lastMePoll = 0;
+    this.nextPoll = 0;
     this.polling = false;
     this.history = [];
     this.historyVisible = 6;
@@ -64,7 +69,7 @@ export class MultiplayerUI {
   <form id="mp-auth" class="club-row"><label class="field">Username<input id="mp-username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required></label><label class="field">Password<input id="mp-password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><button class="button primary" type="submit" name="action" value="login">Sign in</button><button class="button" type="submit" name="action" value="register">Create account</button></form>
   <div id="mp-account" hidden><div class="club-row account-row"><strong id="mp-name"></strong><span id="mp-wallet"></span><button id="mp-logout" class="button quiet">Sign out</button></div>
   <div class="club-tabs" role="tablist" aria-label="Racing club"><button id="mp-tab-live" class="club-tab" role="tab" aria-controls="mp-live-panel" aria-selected="true">Live room & stable</button><button id="mp-tab-upgrades" class="club-tab" role="tab" aria-controls="mp-upgrades-panel" aria-selected="false" tabindex="-1">Upgrades · 20 paths</button><button id="mp-tab-history" class="club-tab" role="tab" aria-controls="mp-history-panel" aria-selected="false" tabindex="-1">Bet slips & results <span id="mp-history-count">0</span></button></div>
-  <div id="mp-live-panel" class="club-grid" role="tabpanel" aria-labelledby="mp-tab-live"><div class="club-sidebar"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Train how your horse runs. Race-day form and luck still matter.</p><div id="mp-upgrades" class="training-grid" aria-label="Train your racer"></div><button id="mp-open-workshop" type="button" class="button quiet workshop-link">Explore horse & power upgrades →</button><details class="training-help"><summary>How training works</summary><p class="club-note">Training changes your horse’s movement throughout the race. Your levels follow you when you change riders. The original three skills have five permanent levels; the workshop adds longer specialist paths and repeatable mastery. Higher levels cost more. Training locks when betting opens and applies to your own racer, regardless of your bet. No upgrade guarantees a win.</p></details><section class="signature-card" aria-label="Your rider power"><span class="eyebrow">SIGNATURE POWER</span><h4 id="mp-power-name"></h4><p id="mp-power-description" class="club-note"></p><p class="club-note">Automatic · included for every rider, including CPUs. Reserve training can unlock a second move.</p><details><summary>Meet all seven powers</summary>${Object.entries(POWERS).map(([id,p]) => `<p><strong>${HORSES[id]} · ${p.name}</strong><br>${p.description}</p>`).join("")}</details></section><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bets lose. Win, Place and Show offer different returns, including the stake. Career points and wins track your own horse.</p></section><section id="mp-room-directory" class="club-box room-directory" aria-label="Other race rooms"></section></div>
+  <div id="mp-live-panel" class="club-grid" role="tabpanel" aria-labelledby="mp-tab-live"><div class="club-sidebar"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Train how your horse runs. Race-day form and luck still matter.</p><div id="mp-upgrades" class="training-grid" aria-label="Train your racer"></div><button id="mp-open-workshop" type="button" class="button quiet workshop-link">Explore horse & power upgrades →</button><details class="training-help"><summary>How training works</summary><p class="club-note">Training changes your horse’s movement throughout the race. Your levels follow you when you change riders. The original three skills have five permanent levels; the workshop adds longer specialist paths and repeatable mastery. Higher levels cost more. Training locks when betting opens and applies to your own racer, regardless of your bet. No upgrade guarantees a win.</p></details><section class="signature-card" aria-label="Your rider power"><span class="eyebrow">SIGNATURE POWER</span><h4 id="mp-power-name"></h4><p id="mp-power-description" class="club-note"></p><p class="club-note">You choose when to use it during a live race. CPU riders choose automatically. Reserve training can unlock a second move.</p><details><summary>Meet all seven powers</summary>${Object.entries(POWERS).map(([id,p]) => `<p><strong>${HORSES[id]} · ${p.name}</strong><br>${p.description}</p>`).join("")}</details></section><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bets lose. Win, Place and Show offer different returns, including the stake. Career points and wins track your own horse.</p></section><section id="mp-room-directory" class="club-box room-directory" aria-label="Other race rooms"></section></div>
   <section class="club-box"><h3>Race with friends</h3><div id="mp-lobby"><button id="mp-create" class="button primary">Create room</button><form id="mp-join-form" class="club-row"><label class="field">Room code<input id="mp-code" maxlength="6" minlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="ABC123" required></label><button class="button" type="submit">Join room</button></form></div>
   <div id="mp-room" hidden><div class="club-row"><strong id="mp-room-name"></strong><button id="mp-leave" class="button quiet">Leave room</button></div><p id="mp-members" class="club-note"></p><details class="racer-builds"><summary>Racer training & powers</summary><div id="mp-racer-builds"></div></details><strong id="mp-phase"></strong><p class="club-note">Seven starters; CPU racers fill empty places. The host opens each round.</p><button id="mp-start" class="button primary">Open betting · start next race</button>
   <section class="current-slip"><h4>This round · your bets</h4><p class="club-note bet-types-note">Win: 1st · 4× return. Place: top 2 · 2×. Show: top 3 · 1.5×. Returns include your stake; fractional coins round down. Up to one of each type per round.</p><form id="mp-bet-form" class="club-row" hidden><label class="field">Bet type<select id="mp-bet-kind"><option value="win">Win · finish 1st</option><option value="place">Place · finish top 2</option><option value="show">Show · finish top 3</option></select></label><label class="field">Your pick<select id="mp-bet-horse"></select></label><label class="field">Stake<input id="mp-stake" type="number" min="10" max="500" step="1" value="50" required></label><button class="button primary" type="submit">Place bet</button><p id="mp-bet-preview" class="club-note"></p></form><div id="mp-bet-note" aria-live="polite"></div></section><div id="mp-finish-order" hidden><h4>Finishing order</h4><ol id="mp-results"></ol></div></div></section></div>
@@ -178,8 +183,23 @@ export class MultiplayerUI {
           }),
         );
       });
-    this.timer = setInterval(() => void this.refresh(), 1000);
-    this.bannerTimer = setInterval(() => { this.renderRaceBanner(); this.updateBettingControls(); }, 200);
+    const ability = document.createElement('section');
+    ability.id = 'race-ability'; ability.className = 'race-ability'; ability.hidden = true;
+    ability.setAttribute('aria-label', 'Your race ability');
+    ability.innerHTML = `<div class="ability-copy"><span class="eyebrow">YOUR MOVE</span><strong id="race-ability-name"></strong><span id="race-ability-status" role="status" aria-live="polite"></span></div><div class="ability-action"><button id="race-use-power" class="button primary" type="button" aria-describedby="race-ability-status race-ability-help" aria-keyshortcuts="F" disabled>Use ability</button><span id="race-ability-help">Tap or press <kbd>F</kbd> · timing matters</span></div><p id="race-ability-error" role="alert" hidden></p>`;
+    $('race-betting-banner').after(ability);
+    $('race-use-power').onclick = () => void this.usePower();
+    this.powerShortcut = event => {
+      if (event.code !== 'KeyF' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+          event.target?.closest('input,select,textarea,[contenteditable="true"]') || !$('race-use-power').checkVisibility() ||
+          $('race-use-power').disabled) return;
+      event.preventDefault(); void this.usePower();
+    };
+    document.addEventListener('keydown', this.powerShortcut);
+    this.timer = setInterval(() => {
+      if (Date.now() >= this.nextPoll) void this.refresh();
+    }, 100);
+    this.bannerTimer = setInterval(() => { this.renderRaceBanner(); this.updateBettingControls(); this.renderAbility(); }, 100);
     void this.refresh();
   }
   get managed() {
@@ -190,19 +210,20 @@ export class MultiplayerUI {
     return e?.userId ? `${e.username} · ${HORSES[horse]}` : HORSES[horse];
   }
   frame() {
-    const r = this.room?.race,
-      now = Date.now() + this.offset;
+    const r = this.room?.race, now = Date.now() + this.offset, definition = r?.definition;
+    let next = definition ? Math.max(0, Math.min(definition.duration, (now - r.starts) / 1000)) : 0;
+    if (definition?.live) {
+      // Confirmed playback has a small network buffer. We never extrapolate an
+      // unconfirmed winner or jump back when a later snapshot arrives.
+      next = Math.max(0, Math.min(definition.availableTime, next - .7));
+      if (this.frameId === r.id) next = Math.max(Math.min(this.frameTime ?? 0, definition.availableTime), next);
+    }
+    this.frameId = r?.id; this.frameTime = next;
     return {
-      time: r?.definition
-        ? Math.max(0, Math.min(r.definition.duration, (now - r.starts) / 1000))
-        : 0,
-      playing:
-        this.online &&
-        Date.now() - this.lastContact < 6000 &&
-        r?.phase === "racing" &&
-        now < r.ends,
-      ready: Boolean(r?.definition && this.loaded === r.id),
-      id: r?.id,
+      time: next,
+      playing: this.online && Date.now() - this.lastContact < 6000 &&
+        (r?.phase === 'racing' || r?.phase === 'results' && next < Math.min(definition?.availableTime ?? 0, (r.ends-r.starts)/1000)),
+      ready: Boolean(definition && this.loaded === r.id), id: r?.id,
     };
   }
   async api(route, body) {
@@ -242,6 +263,8 @@ export class MultiplayerUI {
     this.user = null;
     this.room = null;
     this.loaded = null;
+    this.lastMePoll = 0;
+    this.pendingPower = null;
     this.history = [];
     this.historyKey = null;
     this.roomsData = { rooms: [], online: 0 };
@@ -275,12 +298,12 @@ export class MultiplayerUI {
     this.polling = true;
     try {
       if (this.token) {
-        const me = await this.api("/api/me");
-        this.user = me.user;
-        this.rules = me.rules;
-        this.room = me.roomCode
-          ? (await this.api(`/api/rooms/${me.roomCode}`)).room
-          : null;
+        if (force || !this.user || Date.now()-this.lastMePoll >= 2000 || this.room?.race?.phase !== 'racing') {
+          const me = await this.api('/api/me');
+          this.user = me.user; this.rules = me.rules;
+          this.roomCode = me.roomCode; this.lastMePoll = Date.now();
+        }
+        this.acceptRoom(this.roomCode ? (await this.api(`/api/rooms/${this.roomCode}`)).room : null);
         const key = JSON.stringify([this.user.id, this.user.coins, this.user.races, this.room?.race?.id, this.room?.race?.phase]);
         if (key !== this.historyKey) {
           await this.refreshHistory();
@@ -290,15 +313,7 @@ export class MultiplayerUI {
       } else await this.api("/api/health");
       this.online = true;
       const r = this.room?.race;
-      if (r?.definition && this.loaded !== r.id && this.loadingId !== r.id) {
-        this.loadingId = r.id;
-        try {
-          await this.load(r.definition);
-          this.loaded = r.id;
-        } finally {
-          this.loadingId = null;
-        }
-      }
+      await this.acceptDefinition(r);
       this.render();
       this.onChange();
     } catch (e) {
@@ -310,7 +325,72 @@ export class MultiplayerUI {
       this.render();
     } finally {
       this.polling = false;
+      this.nextPoll = Date.now() + (this.room?.race?.phase === 'racing' ? 500 : 1000);
     }
+  }
+  acceptRoom(room) {
+    const old=this.room?.race, next=room?.race;
+    if (old?.id === next?.id && old?.definition?.live && next?.definition?.live &&
+        ((old.revision??0) > (next.revision??0) || (old.revision??0) === (next.revision??0) && old.definition.availableTime > next.definition.availableTime)) room.race=old;
+    this.room=room;
+  }
+  async acceptDefinition(r = this.room?.race) {
+    if (!r?.definition || this.loadingId === r.id) return;
+    if (this.loaded === r.id) {
+      // A later request can finish first when an ability and room poll overlap.
+      // Keep the more recent confirmed prefix and revision in that case.
+      const current = this.loadedDefinition;
+      if (current?.live && r.definition.live &&
+          (r.revision < this.loadedRevision || r.revision === this.loadedRevision && r.definition.availableTime < current.availableTime)) {
+        r.definition = current; return;
+      }
+      this.update(r.definition);
+    } else {
+      this.loadingId = r.id;
+      try { await this.load(r.definition); this.loaded = r.id; }
+      finally { this.loadingId = null; }
+    }
+    this.loadedDefinition = r.definition; this.loadedRevision = r.revision ?? 0;
+  }
+  async usePower() {
+    const race = this.room?.race;
+    if (this.powerBusy || !this.token || !this.online || !race || (!race.power?.available && !this.pendingPower)) return;
+    if (this.pendingPower?.raceId !== race.id) this.pendingPower = null;
+    const request = this.pendingPower ?? {raceId:race.id,requestId:crypto.randomUUID()};
+    this.pendingPower = request; this.powerBusy = true; this.powerError = '';
+    this.renderAbility();
+    try {
+      const response = await this.api(`/api/rooms/${this.room.code}/power`, request);
+      this.pendingPower = null;
+      this.acceptRoom(response.room);
+      await this.acceptDefinition(); this.render(); this.onChange();
+      // A room poll already in flight may predate this successful activation.
+      this.nextPoll = 0;
+    } catch(error) {
+      // An uncertain network response keeps its request id, so tapping Retry
+      // cannot consume a second charge if the first use reached the server.
+      if (error.status && error.status < 500) this.pendingPower = null;
+      this.powerError = error.status && error.status < 500 ? error.message : 'Connection interrupted. Retry confirms this same move safely.';
+    } finally { this.powerBusy = false; this.renderAbility(); }
+  }
+  renderAbility() {
+    const race=this.room?.race, power=race?.power, box=$('race-ability');
+    if (!box) return;
+    box.hidden = !this.user || !race || !power || power.reason === 'spectator' || power.reason === 'legacy';
+    if (box.hidden) return;
+    if (this.pendingPower?.raceId !== race.id) this.pendingPower = null;
+    if (this.abilityRaceId !== race.id) {this.abilityRaceId=race.id;this.powerError='';}
+    const name=POWERS[power.actor]?.name ?? 'Ability', now=Date.now()+this.offset;
+    const waiting=power.readyAt ? Math.max(0,(power.readyAt-now)/1000) : 0;
+    const states={betting:'Ready after the gates open',gates:`Gates open in ${Math.ceil(waiting)}s`,ready:'Ready — choose your moment',cooldown:`Recharging · ${waiting.toFixed(1)}s`,spent:'All charges used',finished:'Your horse has finished'};
+    $('race-ability-name').textContent=name;
+    $('race-ability-status').textContent=this.powerBusy?'Sending your move…':this.pendingPower?'Move sent · retry to confirm':`${states[power.reason] ?? 'Waiting for the race'} · ${power.remaining}/${power.charges} charges`;
+    const button=$('race-use-power');
+    button.textContent=this.pendingPower&&!this.powerBusy?'Retry ability':`Use ${name}`;
+    button.disabled=this.powerBusy || !this.online || Date.now()-this.lastContact>=6000 || (!power.available && !this.pendingPower);
+    box.dataset.state=this.powerBusy?'sending':power.reason;
+    $('race-ability-error').hidden=!this.powerError;
+    $('race-ability-error').textContent=this.powerError ?? '';
   }
   async refreshRooms() {
     if (!this.token || this.roomsPolling) return;
@@ -345,6 +425,7 @@ export class MultiplayerUI {
   }
   render() {
     this.renderRaceBanner();
+    this.renderAbility();
     $("mp-auth").hidden = Boolean(this.user);
     $("mp-account").hidden = !this.user;
     $("mp-connection").textContent = this.online
@@ -431,7 +512,7 @@ export class MultiplayerUI {
       this.buildSignature=buildSignature;
       $("mp-racer-builds").replaceChildren(...buildRows.map(e=>{
         const row=document.createElement('p'),levels=e.upgrades??{},paths=Object.entries(levels).filter(([,n])=>n>0);
-        row.textContent=`${e.username} · ${HORSES[e.horse]} · Speed ${e.speed}/5 / Stamina ${e.stamina}/5 / Focus ${e.focus}/5 · ${paths.length?paths.map(([kind,n])=>`${UPGRADES[kind]?.name??kind} ${n}`).join(', '):'No workshop training'}${levels.powerReserve>=5?' · two automatic powers':''}`;
+        row.textContent=`${e.username} · ${HORSES[e.horse]} · Speed ${e.speed}/5 / Stamina ${e.stamina}/5 / Focus ${e.focus}/5 · ${paths.length?paths.map(([kind,n])=>`${UPGRADES[kind]?.name??kind} ${n}`).join(', '):'No workshop training'}${levels.powerReserve>=5?' · two player-triggered powers':''}`;
         return row;
       }));
     }
@@ -491,5 +572,6 @@ export class MultiplayerUI {
   dispose() {
     clearInterval(this.timer);
     clearInterval(this.bannerTimer);
+    document.removeEventListener('keydown',this.powerShortcut);
   }
 }

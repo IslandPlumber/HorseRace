@@ -1,13 +1,27 @@
 # Rider powers
 
-New club races use `skills-v6-workshop`. Every rider, including CPUs, starts with one
-automatic signature move per race. Reserve training can unlock a second late move
-at 65% strength. The workshop also trains power strength, duration, reach and
-control; tack can soften hits and shorten recovery. See [PROGRESSION.md](PROGRESSION.md). There are no power purchases or activation
-requests. The server chooses a seeded activation point between 28% and 66% of
-the course, simulates the whole field together, and persists actual movement,
-targets and event times at betting cutoff. All devices replay those same events.
-Saved races keep their original model, results and ticket returns.
+New club races use `skills-v7-live`. Players choose when to use their signature
+move after the gates open. Use the ability button beside the race, or its shown
+keyboard shortcut. A move affects motion from its activation onward and can
+change the finishing order of a race already in progress. Unused moves are not
+fired automatically for a human player. CPU riders still choose their moves
+automatically.
+
+Every rider starts with one charge. Reserve level 5 unlocks a second charge at
+65% strength, available after the first move's recovery window. Both charges
+are player-controlled. Power training improves strength, duration, reach and
+control; tack can soften hits and shorten recovery. See
+[PROGRESSION.md](PROGRESSION.md). Abilities do not cost coins to activate.
+
+The server checks ownership, charges and race time, and saves each accepted
+activation. Requests cannot choose a target, seed, timestamp or winner. Repeated
+requests for the same action cannot spend another charge. Movement already
+shown is preserved; future movement responds to the new action. Browsers receive
+only confirmed motion and past events while a race is live, with a short shared
+playback buffer. Future progress, the secret seed and the projected outcome are
+not sent to players. The final replay and settlement use the actual crossings.
+Restarting the service keeps accepted moves and does not reroll the race.
+Saved older races retain their original automatic moves, results and returns.
 
 | Rider | Power | What happens |
 | --- | --- | --- |
@@ -28,9 +42,9 @@ leading, or the winner has crossed the finish, no rival is hit; the attacker
 keeps only their speed boost. They never attack themselves or retarget second
 place. CPU and human racers follow the same rules.
 
-The server freezes the field's exact positions at activation into the saved
-timeline so the selected leader agrees with the visible live order, including
-close finishes. Targets must still be racing.
+The server uses the field's positions at activation to choose targets. A short
+playback buffer means a very close lead can change between what the screen shows
+and the server accepting a click. Targets must still be racing.
 Impacts follow a short visible throw. Targets and the most recent four moves
 appear in the race feed; ready/active/used and slowed states appear in live order.
 
@@ -63,8 +77,9 @@ they never choose or overwrite the winner. Finish crossings still determine
 Win/Place/Show settlement, finish prizes and career points. Betting closes
 before the server prepares any power times or result.
 
-The practice demonstrations remain their original scripts. To preview powers
-locally, import a definition produced by `simulateRace`, or join a club room.
+The practice demonstrations remain their original scripts. `simulateRace` retains
+the older automatic simulation for fixtures and imported previews; live club
+races use `simulateLiveRace` with the server's saved activation log.
 
 In the v5 1,000-seed audit, untrained character wins ranged from 13.7% to 15.2%;
 the 4/2/1 build won 60.3% and maximum training won 89.6% against six untrained

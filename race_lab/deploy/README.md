@@ -97,16 +97,19 @@ upgraded round to an engine that ignores workshop levels.
 
 ## Save data and recovery
 
-Club races now simulate the frozen entry skills through actual movement:
+Club races simulate the frozen entry skills through actual movement:
 Speed controls acceleration/cruising pace, Stamina reduces late fatigue, and
 Focus helps starts, corners and rhythm. Finish crossings determine the outcome.
-The shared timeline is persisted at betting cutoff and reused after restart;
-older saved definitions retain their original outcomes and payouts. Round end
-follows the final crossing, within the original maximum time slot. See
-`../POWERS.md` for the automatic, server-simulated signature move for every rider.
-Include `powers.js` alongside the race engine in releases. Power targets, times
-and resulting movement persist in the existing race definition; no database
-schema or coin/prize change is required. Old race definitions remain unchanged.
+New races persist a private seed and an append-only log of player power uses in
+the additive `live_races` and `race_power_uses` tables. Players choose when to use
+their charge after the gates open; CPUs act automatically. Accepted actions change
+future movement and can change the winner. Public live definitions contain only
+confirmed motion and events, with no future outcome or secret seed. Old race
+definitions retain their original automatic moves, outcomes and payouts.
+Round end follows the final actual crossing; a fixed, generous maximum slot
+allows late attacks without retiming earlier movement. See `../POWERS.md`.
+Include `powers.js` alongside the race engine in releases. Pending manual races
+must finish with compatible code before any downgrade to an automatic-only engine.
 See
 `../TRAINING.md` for the model and balance audit. `npm run test:training` verifies
 the real upgrade interface and shared motion on desktop and phone. Prices,
@@ -130,8 +133,10 @@ Run one Node process against this database; this release targets small rooms and
 initial multiplayer testing, not multiple application replicas.
 
 Before public testing, verify registration/sign-in from two browsers, a shared
-room, betting cutoff, synchronized race playback, finish awards, sign-in on a new
-device and progress after a service restart. Also verify the existing Pick'em
+room, betting cutoff, synchronized race playback, manual power use, finish awards,
+sign-in on a new device and progress after a service restart. Confirm that used
+charges and action IDs survive a mid-race restart, with no duplicate action or
+payout, and that clients never receive future motion while racing. Also verify the existing Pick'em
 site and its service are still healthy. Keep the previous release available for
 rollback, preserving the database. Retain the additive ticket store and all
 older betting records across release changes.

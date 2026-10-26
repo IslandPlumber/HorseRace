@@ -7,7 +7,7 @@ import {
   createHash,
 } from "node:crypto";
 import { ACTOR_IDS } from "../race-core.js";
-import { simulateRace } from "./race-simulation.js";
+import { simulateRace, simulateLiveRace, publicLiveRace, nextLiveActivationTime, raceFinishedAt, LIVE_POWER_COOLDOWN } from "./race-simulation.js";
 import { BET_TYPES, ticketReturn } from "../betting.js";
 import {UPGRADES,upgradeCost,finishPrize} from '../progression.js';
 export const RULES = {
@@ -53,7 +53,9 @@ export class Game {
    CREATE TABLE IF NOT EXISTS races(id TEXT PRIMARY KEY, code TEXT NOT NULL REFERENCES rooms(code), number INTEGER NOT NULL, phase TEXT NOT NULL, closes INTEGER NOT NULL, starts INTEGER NOT NULL, ends INTEGER NOT NULL, entrants TEXT NOT NULL, definition TEXT, results TEXT);
    CREATE TABLE IF NOT EXISTS bets(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), race_id TEXT NOT NULL REFERENCES races(id), horse TEXT NOT NULL, stake INTEGER NOT NULL, payout INTEGER, UNIQUE(user_id,race_id));
    CREATE TABLE IF NOT EXISTS ledger(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), delta INTEGER NOT NULL, reason TEXT NOT NULL, race_id TEXT, created INTEGER NOT NULL);
-   CREATE TABLE IF NOT EXISTS race_bets(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), race_id TEXT NOT NULL REFERENCES races(id), horse TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('win','place','show')), stake INTEGER NOT NULL CHECK(typeof(stake)='integer' AND stake BETWEEN 10 AND 500), return_units INTEGER NOT NULL CHECK(return_units>=100), payout INTEGER CHECK(payout IS NULL OR (typeof(payout)='integer' AND payout>=0)), UNIQUE(user_id,race_id,kind));`);
+   CREATE TABLE IF NOT EXISTS race_bets(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), race_id TEXT NOT NULL REFERENCES races(id), horse TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('win','place','show')), stake INTEGER NOT NULL CHECK(typeof(stake)='integer' AND stake BETWEEN 10 AND 500), return_units INTEGER NOT NULL CHECK(return_units>=100), payout INTEGER CHECK(payout IS NULL OR (typeof(payout)='integer' AND payout>=0)), UNIQUE(user_id,race_id,kind));
+   CREATE TABLE IF NOT EXISTS live_races(race_id TEXT PRIMARY KEY REFERENCES races(id),seed TEXT NOT NULL,duration REAL NOT NULL,revision INTEGER NOT NULL DEFAULT 0);
+   CREATE TABLE IF NOT EXISTS race_power_uses(request_id TEXT PRIMARY KEY,race_id TEXT NOT NULL REFERENCES races(id),user_id TEXT NOT NULL REFERENCES users(id),actor TEXT NOT NULL,time REAL NOT NULL,charge INTEGER NOT NULL,created INTEGER NOT NULL,UNIQUE(race_id,user_id,charge));`);
   }
   one(sql, ...p) {
     return this.db.prepare(sql).get(...p);
@@ -408,6 +410,9 @@ export class Game {
         null,
         null,
       );
+      // New rounds opt into live controls explicitly. Older in-flight rounds
+      // retain their original engine and saved outcome across this migration.
+      this.run("INSERT INTO live_races(race_id,seed,duration) VALUES(?,?,?)",raceId,randomBytes(16).toString("hex"),this.duration);
       return raceId;
     });
   }
@@ -461,19 +466,78 @@ export class Game {
     });
   }
   prepare(r) {
-    const def = simulateRace(randomBytes(16).toString("hex"), {
+    const live=this.one("SELECT * FROM live_races WHERE race_id=?",r.id);
+    const def = (live?simulateLiveRace:simulateRace)(live?.seed??randomBytes(16).toString("hex"), {
       entrants: JSON.parse(r.entrants),
-      duration: (r.ends - r.starts) / 1000,
+      duration: live?.duration??(r.ends - r.starts) / 1000,
       title: `Room ${r.code} · Race ${r.number}`,
+      ...(live?{activations:[]}:{}),
     });
     def.id = r.id;
     this.run(
       "UPDATE races SET phase='racing', definition=?,ends=? WHERE id=? AND phase='betting'",
       JSON.stringify(def),
-      r.starts + def.duration * 1000,
+      r.starts + (live?raceFinishedAt(def):def.duration) * 1000,
       r.id,
     );
     return def;
+  }
+  powerUses(raceId) {
+    return this.all("SELECT * FROM race_power_uses WHERE race_id=? ORDER BY time,actor,charge",raceId);
+  }
+  powerStatus(id,r,def,live) {
+    const entrant=JSON.parse(r.entrants).find(e=>e.userId===id);
+    if(!entrant)return {actor:null,charges:0,used:0,remaining:0,available:false,reason:"spectator",readyAt:null};
+    const charges=(entrant.upgrades?.powerReserve??0)>=5?2:1;
+    const uses=live?this.powerUses(r.id).filter(e=>e.user_id===id):[];
+    const state={actor:entrant.horse,charges,used:uses.length,remaining:Math.max(0,charges-uses.length),available:false,reason:"legacy",readyAt:null};
+    if(!live)return state;
+    if(r.phase==="betting")return {...state,reason:"betting",readyAt:r.starts};
+    if(r.phase==="results")return {...state,reason:"finished"};
+    if(!def)return {...state,reason:"gates",readyAt:r.starts};
+    const elapsed=(this.clock()-r.starts)/1000;
+    const runner=def.cast.find(h=>h.id===entrant.horse);
+    const finished=runner.progress.some(p=>p.distance>=def.track.length&&p.time<=elapsed);
+    if(finished)return {...state,reason:"finished"};
+    if(elapsed<def.startDelay)return {...state,reason:"gates",readyAt:r.starts+def.startDelay*1000};
+    if(!state.remaining)return {...state,reason:"spent"};
+    const latest=uses.at(-1),event=latest&&def.events.find(e=>e.actor===entrant.horse&&e.charge===latest.charge);
+    const readyAt=event?r.starts+(event.time+Math.max(event.duration,LIVE_POWER_COOLDOWN))*1000:null;
+    if(readyAt!==null&&this.clock()<readyAt)return {...state,reason:"cooldown",readyAt};
+    return {...state,available:true,reason:"ready",readyAt};
+  }
+  power(id,code,raceId,requestId) {
+    requireThat(typeof requestId==="string"&&/^[a-zA-Z0-9_-]{8,100}$/.test(requestId),"Refresh the page before using your ability.");
+    // Advance using the server clock before deciding whether a race is still
+    // open. A client can never supply an earlier activation time or an actor.
+    this.tick();
+    return this.transaction(()=>{
+      requireThat(this.membership(id)===code,"Join this room first.",403);
+      const r=this.latest(code);
+      requireThat(r&&r.id===raceId,"That race has changed. Refresh before using your ability.",409);
+      const previous=this.one("SELECT * FROM race_power_uses WHERE request_id=?",requestId);
+      if(previous){
+        requireThat(previous.user_id===id&&previous.race_id===r.id,"That ability request was already used.",409);
+        return {duplicate:true,charge:previous.charge,time:previous.time};
+      }
+      const live=this.one("SELECT * FROM live_races WHERE race_id=?",r.id);
+      const def=r.definition?JSON.parse(r.definition):null;
+      const state=this.powerStatus(id,r,def,live);
+      const reasons={spectator:"You are watching this race. Your ability is available when you enter the next race.",legacy:"This race uses the earlier automatic abilities. Your controls will be ready next race.",betting:"Wait for the race to start before using your ability.",gates:"Wait for the starting gate to open.",cooldown:"Your ability is still active. Wait for it to finish before using your reserve.",spent:"You have used every ability charge for this race.",finished:"Your horse has finished this race."};
+      requireThat(state.available,reasons[state.reason]??"Your ability is not ready.",409);
+      const time=nextLiveActivationTime(def,(this.clock()-r.starts)/1000);
+      const uses=this.powerUses(r.id),charge=state.used+1;
+      const next=simulateLiveRace(live.seed,{
+        entrants:JSON.parse(r.entrants),duration:live.duration,title:def.title,
+        activations:[...uses.map(use=>({actor:use.actor,time:use.time})),{actor:state.actor,time}],
+      });
+      next.id=r.id;
+      requireThat(next.events.some(event=>event.actor===state.actor&&event.charge===charge&&event.time>=time-1e-8),"Your horse has reached the finish. Save your ability for the next race.",409);
+      this.run("INSERT INTO race_power_uses VALUES(?,?,?,?,?,?,?)",requestId,r.id,id,state.actor,time,charge,this.clock());
+      this.run("UPDATE live_races SET revision=revision+1 WHERE race_id=?",r.id);
+      this.run("UPDATE races SET definition=?,ends=? WHERE id=?",JSON.stringify(next),r.starts+raceFinishedAt(next)*1000,r.id);
+      return {duplicate:false,charge,time};
+    });
   }
   settle(r, def) {
     const entrants = JSON.parse(r.entrants),
@@ -521,7 +585,8 @@ export class Game {
         this.clock(),
       )) {
         const def = r.definition ? JSON.parse(r.definition) : this.prepare(r);
-        if (this.clock() >= r.starts + def.duration * 1000) this.settle(r, def);
+        const live=this.one("SELECT race_id FROM live_races WHERE race_id=?",r.id);
+        if (this.clock() >= r.starts + (live?raceFinishedAt(def):def.duration) * 1000) this.settle(r, def);
       }
     });
   }
@@ -536,6 +601,9 @@ export class Game {
       ),
       r = this.latest(code),
       tickets = r ? this.ticketViews(r.id, id, r.results ? JSON.parse(r.results) : null) : [];
+    const live=r&&this.one("SELECT * FROM live_races WHERE race_id=?",r.id);
+    const definition=r?.definition?JSON.parse(r.definition):null;
+    const publicDefinition=definition&&live?publicLiveRace(definition,r.phase==="results"?raceFinishedAt(definition):(this.clock()-r.starts)/1000,{id:r.id,revision:live.revision}):definition;
     return {
       code,
       hostId: room.host_id,
@@ -547,9 +615,11 @@ export class Game {
             phase: r.phase,
             closes: r.closes,
             starts: r.starts,
-            ends: r.ends,
+            ends: live&&definition&&r.phase!=="results"?r.starts+definition.duration*1000:r.ends,
             entrants: JSON.parse(r.entrants),
-            definition: r.phase === "betting" ? null : JSON.parse(r.definition),
+            definition: r.phase === "betting" ? null : publicDefinition,
+            revision:live?.revision??0,
+            power:this.powerStatus(id,r,definition,live),
             results: r.results ? JSON.parse(r.results) : null,
             bets: tickets,
             bet: tickets[0] ? { horse: tickets[0].horse, stake: tickets[0].stake, payout: tickets[0].payout } : null,
@@ -569,6 +639,7 @@ export class Game {
     // Include the current round even before an optional bet has been placed.
     return this.all(
       `SELECT r.id,r.code,r.number,r.phase,r.starts,r.ends,r.entrants,r.results,
+        CASE WHEN r.phase<>'results' AND EXISTS(SELECT 1 FROM live_races lr WHERE lr.race_id=r.id) THEN r.definition END AS live_definition,
         (SELECT COALESCE(SUM(l.delta),0) FROM ledger l WHERE l.user_id=? AND l.race_id=r.id) AS net_coins
        FROM races r
        WHERE r.id IN (SELECT race_id FROM ledger WHERE user_id=? AND race_id IS NOT NULL)
@@ -588,7 +659,7 @@ export class Game {
         number: r.number,
         phase: r.phase,
         starts: r.starts,
-        ends: r.ends,
+        ends: r.live_definition?r.starts+JSON.parse(r.live_definition).duration*1000:r.ends,
         ownHorse: entrant?.horse ?? null,
         place: finish?.place ?? null,
         prize: finish?.prize ?? 0,

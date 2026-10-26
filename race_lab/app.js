@@ -77,6 +77,7 @@ let loading = true;
 let failed = false;
 let speed = 1;
 let loadSerial = 0;
+let trackBuilds = 0, liveUpdates = 0;
 let visibleActors = [];
 let lastFrame = performance.now();
 let smoothCenter = 0;
@@ -190,6 +191,7 @@ function disposeTrack() {
   trackRoot.clear();
 }
 function buildTrack(definition) {
+  trackBuilds++;
   disposeTrack();
   course=null;
   if(definition.track.type==='circuit'){course=createCourse(definition,trackRoot);return;}
@@ -245,7 +247,8 @@ async function loadRace(definition, options = {}) {
     cameraDistance = Math.max(1, (race.cast.length * race.track.laneWidth + 6) / 22);
     lastStandings = '';
     $('race-title').textContent = race.title;
-    $('duration').textContent = ` / ${race.duration.toFixed(1)} s`;
+    $('duration').textContent = race.live ? (race.completed?' · FINAL':' · LIVE') : ` / ${race.duration.toFixed(1)} s`;
+    document.querySelector('.stage-heading .eyebrow').textContent=race.live?'LIVE RACE':'PREPARED RACE';
     $('timeline').max = race.duration;
     $('timeline').value = 0;
     $('seed').value = race.seed ?? $('seed').value;
@@ -258,7 +261,7 @@ async function loadRace(definition, options = {}) {
       $('race-select').value = sourceKey;
     }
     $('stage-badge').textContent = `${race.cast.length} racers · ${Math.round(race.track.length)} m · ${race.track.type==='circuit'?'4 turns':'straight'}`;
-    $('race-id').textContent = `${race.id} · seed ${race.seed ?? '—'}`;
+    $('race-id').textContent = race.live ? `${race.id} · shared live race` : `${race.id} · seed ${race.seed ?? '—'}`;
     $('race-note').textContent = 'Race prepared. Press play or scrub the timeline.';
     setBusy(false);
     displayFrame(true);
@@ -271,6 +274,17 @@ async function loadRace(definition, options = {}) {
     showError(error);
     throw error;
   }
+}
+function updateLiveRace(definition) {
+  const validated=validateRace(definition);
+  if (!race || validated.id!==race.id) return loadRace(validated,{source:'live'});
+  // Live snapshots extend the confirmed timeline without resetting actors,
+  // model animation, camera choice, track geometry or the sound session.
+  race=validated; liveUpdates++;
+  $('race-title').textContent=race.title;
+  $('timeline').max=race.duration;
+  $('duration').textContent=race.completed?' · FINAL':' · LIVE';
+  needsRender=true;
 }
 async function loadExample(key) {
   playing = false;
@@ -512,7 +526,7 @@ renderer.setAnimationLoop((now) => {
     }
     if(time!==previousTime)needsRender=true;
     if(playing||needsRender)displayFrame();
-    if(multiplayer?.managed){const r=multiplayer.room.race;$('race-note').textContent=r?.phase==='racing'?'Live shared race · cameras and sound are personal.':r?.phase==='results'?'Official result · coins and points saved.':'Waiting at the gates · betting closes before the race is prepared.';if(!multiplayer.frame().ready)$('race-title').textContent='Live room · waiting for the start';}
+    if(multiplayer?.managed){const r=multiplayer.room.race;$('race-note').textContent=r?.phase==='racing'?'Live shared race · use your ability at the right moment. Cameras and sound are personal.':r?.phase==='results'?'Official result · coins and points saved.':'Waiting at the gates · betting closes before the race is prepared.';if(!multiplayer.frame().ready)$('race-title').textContent='Live room · waiting for the start';}
   }
   if(needsRender||playing){renderer.render(scene, camera);needsRender=false;}
 });
@@ -525,7 +539,7 @@ window.raceLab = {
   get time() { return time; },
   get ready() { return Boolean(race && !loading); },
   get actorCount() { return visibleActors.length; },
-  get renderDiagnostics(){return {drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,ownMarker:ownMarker.visible};},
+  get renderDiagnostics(){return {trackBuilds,liveUpdates,actorInstances:visibleActors.map(a=>a.group.uuid),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,ownMarker:ownMarker.visible};},
   get assetCount() { return assetPromises.size; },
   get textureDiagnostics(){return visibleActors.map(actor=>{const textures=new Map();actor.model.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.map)textures.set(m.map.uuid,{name:m.name,width:m.map.image?.width??0,height:m.map.image?.height??0});});return {id:actor.id,textures:[...textures.values()]};});},
   get viewDiagnostics(){return visibleActors.map(actor=>{let head;actor.model.traverse(o=>{if(/head[ _]hinge/.test(o.name))head=o;});actor.group.updateMatrixWorld(true);const v=(head??actor.puppet??actor.group).getWorldPosition(new THREE.Vector3());const projected=v.clone().project(camera);return {id:actor.id,headHeight:v.y,screen:projected.toArray(),puppet:actor.puppet?.quaternion.toArray()};});},
@@ -538,4 +552,4 @@ window.raceLab = {
 };
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 window.addEventListener('pagehide', () => { disposed = true;powerView.dispose();raceAudio.dispose();multiplayer?.dispose(); renderer.setAnimationLoop(null); observer.disconnect(); });
-void loadExample('demo-a').then(()=>{multiplayer=new MultiplayerUI({load:def=>loadRace(def,{source:'live'}),onChange:()=>{needsRender=true;document.querySelector('.race-tools').hidden=Boolean(multiplayer?.managed);syncControls();}});});
+void loadExample('demo-a').then(()=>{multiplayer=new MultiplayerUI({load:def=>loadRace(def,{source:'live'}),update:updateLiveRace,onChange:()=>{needsRender=true;document.querySelector('.race-tools').hidden=Boolean(multiplayer?.managed);syncControls();}});});

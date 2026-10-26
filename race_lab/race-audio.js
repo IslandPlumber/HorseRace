@@ -1,5 +1,5 @@
 import {buildAudioPlan,crowdProfile,cueSchedule,cheerSchedule} from './audio-plan.js';
-import {GAIT_HZ,GAIT_LOOP,hoofSchedule} from './gait.js';
+import {GAIT_HZ,GAIT_LOOP,hoofSchedule,gaitClock,finishTime} from './gait.js';
 import {powerEvents} from './powers.js';
 import {comicClip,POWER_CLIPS,powerCues} from './power-audio.js';
 const clamp=x=>Math.max(0,Math.min(1,x));
@@ -89,7 +89,8 @@ export class RaceAudio {
  pause(){this.playing=false;this.generation++;this.stopSources();}
  async start(race,time,speed=1){
   const requestedAt=performance.now();
-  this.stopSources();const generation=++this.generation;this.playing=true;this.race=race;this.cursor=time;this.speed=speed;this.plan=buildAudioPlan(race);
+  this.stopSources();const generation=++this.generation;this.playing=true;this.race=race;this.cursor=time;this.speed=speed;this.plan=race.live ? {delay:race.startDelay??0,finish:Infinity,changes:[],duration:race.duration} : buildAudioPlan(race);
+  this.liveHeard=new Set();this.liveLeader=null;this.lastLiveCheer=-Infinity;
   try{await this.unlock();if(generation!==this.generation||!this.playing)return;
    for(const rider of race.cast)if(!this.hoofBuffers.has(rider.id))this.hoofBuffers.set(rider.id,hoofCycle(this.ctx,this.buffers.hooves,rider.id));
    let current=Math.min(race.duration,time+(performance.now()-requestedAt)/1000*speed);
@@ -107,7 +108,7 @@ export class RaceAudio {
   this.ambience=c.createGain();this.cheers=c.createGain();this.filter=c.createBiquadFilter();this.filter.type='lowpass';this.filter.Q.value=.3;this.ambience.connect(this.filter);this.cheers.connect(this.filter);
   this.crowdMaster=c.createGain();this.crowdMaster.gain.value=this.crowdVolume;this.filter.connect(this.crowdMaster);this.crowdMaster.connect(this.runGain);
   this.source(this.buffers.crowd,this.ambience,{loop:true,offset:time%this.buffers.crowd.duration});
-  for(const cue of cheerSchedule(this.plan,time,this.buffers.cheer.duration)){
+  for(const cue of this.race.live ? [] : cheerSchedule(this.plan,time,this.buffers.cheer.duration)){
    const reaction=c.createGain(),when=this.scheduleAnchor+cue.after/this.speed,end=when+cue.duration/this.speed;
    reaction.connect(this.cheers);reaction.gain.setValueAtTime(Math.min(1,cue.offset/.12),when);
    if(cue.offset<.12)reaction.gain.linearRampToValueAtTime(.8,Math.min(end,when+(.12-cue.offset)/this.speed));
@@ -116,7 +117,16 @@ export class RaceAudio {
   }
   this.hooves=c.createGain();this.hooves.connect(this.runGain);
   this.horseChannels=new Map();
-  for(const horse of hoofSchedule(this.race,time)){
+  if(this.race.live) {
+   // Live races have no future gait or finish schedule to guess. Each horse
+   // owns one continuous voice whose cadence follows confirmed motion.
+   for(const horse of this.race.cast){
+    const gain=c.createGain(),pan=c.createStereoPanner();gain.gain.value=0;pan.pan.value=(horse.lane-(this.race.cast.length-1)/2)/Math.max(1,this.race.cast.length)*1.3;gain.connect(pan);pan.connect(this.hooves);
+    const voice=this.source(this.hoofBuffers.get(horse.id),gain,{loop:true,offset:gaitClock(this.race,horse,time)%GAIT_LOOP,rate:.001});
+    this.horseChannels.set(horse.id,{gain,pan,voice,finish:Infinity});
+   }
+  }
+  for(const horse of this.race.live ? [] : hoofSchedule(this.race,time)){
    const gain=c.createGain(),pan=c.createStereoPanner();gain.gain.value=1/Math.pow(this.race.cast.length,.3);pan.pan.value=(horse.lane-(this.race.cast.length-1)/2)/Math.max(1,this.race.cast.length)*1.3;gain.connect(pan);pan.connect(this.hooves);
    this.horseChannels.set(horse.id,{gain,pan,finish:horse.finish});
    // One continuous voice per horse, even with a detailed simulation timeline.
@@ -126,20 +136,71 @@ export class RaceAudio {
    for(const segment of horse.segments)voice.playbackRate.setValueAtTime(segment.rate*this.speed,this.scheduleAnchor+segment.after/this.speed);
    voice.stop(this.scheduleAnchor+(horse.finish-time)/this.speed);
   }
-  for(const cue of cueSchedule(this.plan,time,this.buffers.bugle.duration)){
+  for(const cue of cueSchedule(this.plan,time,this.buffers.bugle.duration).filter(cue=>!this.race.live || cue.id!=='shot')){
    const gain=c.createGain();gain.gain.value=cue.id==='bugle'?1.05:.78;gain.connect(this.runGain);
    this.source(this.buffers[cue.id],gain,{after:cue.after/this.speed,offset:cue.offset,rate:this.speed,duration:cue.duration});
    this.events.push({id:cue.id,raceTime:cue.id==='shot'?this.plan.delay:time,after:cue.after/this.speed,generation:this.generation});if(this.events.length>100)this.events.shift();
   }
   this.powerMaster=c.createGain();this.powerMaster.gain.value=this.powerVolume;this.powerMaster.connect(this.runGain);
-  for(const cue of powerCues(this.race,time)) {
+  for(const cue of this.race.live ? [] : powerCues(this.race,time)) {
    if(!this.powerBuffers.has(cue.key))continue;
    const gain=c.createGain();gain.gain.value=cue.phase==='hit'?.9:.65;gain.connect(this.powerMaster);
    this.source(this.powerBuffers.get(cue.key),gain,{after:(cue.time-time)/this.speed,rate:this.speed});
    this.events.push({id:cue.id,key:cue.key,phase:cue.phase,raceTime:cue.time,generation:this.generation});
    if(this.events.length>100)this.events.shift();
   }
+  if(this.race.live){
+   // Enabling sound partway through a race does not replay old punches.
+   for(const cue of powerCues(this.race,0))if(cue.time<time-.03)this.liveHeard.add(cue.id);
+   if(time>this.plan.delay+.03)this.liveHeard.add('live-shot');
+   if(time>this.plan.delay+.83)this.liveHeard.add('live-start-cheer');
+  }
   this.updateGains(time,'broadcast',true);
+ }
+ liveCue(id,buffer,time,gainValue=.7,target=this.runGain,offset=0){
+  if(this.liveHeard.has(id))return;this.liveHeard.add(id);
+  const gain=this.ctx.createGain();gain.gain.value=gainValue;gain.connect(target);
+  this.scheduleAnchor=this.ctx.currentTime+.008;
+  this.source(buffer,gain,{offset});
+  this.events.push({id,raceTime:time,offset,generation:this.generation});if(this.events.length>100)this.events.shift();
+ }
+ updateLive(race,time,sample){
+  this.race=race;
+  const now=this.ctx.currentTime;
+  for(const runner of race.cast){
+   const channel=this.horseChannels.get(runner.id);if(!channel)continue;
+   channel.finish=finishTime(race,runner);
+   const segment=runner.progress.findIndex((p,i)=>i>0&&p.time>time);
+   const i=segment>0?segment:runner.progress.length-1,a=runner.progress[i-1],b=runner.progress[i];
+   const nominal=race.simulation?.nominalSpeed??race.track.length/50;
+   const rate=b&&a&&time>=(race.startDelay??0)&&time<channel.finish?(b.distance-a.distance)/(b.time-a.time)/nominal:0;
+   channel.voice.playbackRate.setTargetAtTime(Math.max(.001,rate),now,.025);
+  }
+  if(time>=this.plan.delay&&time-this.plan.delay<.5)this.liveCue('live-shot',this.buffers.shot,this.plan.delay,.78);
+  else if(time>this.plan.delay+.5)this.liveHeard.add('live-shot');
+  if(time>=this.plan.delay+.8&&time-this.plan.delay-.8<.5)this.liveCue('live-start-cheer',this.buffers.cheer,this.plan.delay+.8,.13,this.cheers);
+  const first=sample?.runners.find(r=>r.id===sample.standings[0]);
+  if(first){
+   if(this.liveLeader && this.liveLeader!==first.id && time>this.plan.delay+.4 && time-this.lastLiveCheer>4){
+    this.plan.changes.push({time,leader:first.id});this.lastLiveCheer=time;
+    this.liveCue(`live-lead-${this.plan.changes.length}`,this.buffers.cheer,time,.16,this.cheers);
+   }
+   this.liveLeader=first.id;
+   if(first.finished && !Number.isFinite(this.plan.finish)){
+    this.plan.finish=first.finishTime;
+    if(time-first.finishTime<.5)this.liveCue('live-finish-cheer',this.buffers.cheer,first.finishTime,.3,this.cheers);
+   }
+  }
+  for(const cue of powerCues(race,0)){
+   if(cue.time>time||this.liveHeard.has(cue.id))continue;
+   const buffer=this.powerBuffers.get(cue.key),offset=Math.max(0,time-cue.time);
+   // If a visible live frame arrives late, play only the part of the comic
+   // clip that is still happening. Completed clips and late-enable history
+   // remain silent; a slow device never gets a backlog of old attacks.
+   if(!buffer || offset>=buffer.duration){this.liveHeard.add(cue.id);continue;}
+   this.liveCue(cue.id,buffer,cue.time,cue.phase==='hit'?.9:.65,this.powerMaster,offset);
+   const event=this.events.at(-1);Object.assign(event,{key:cue.key,phase:cue.phase});
+  }
  }
  updateGains(time,shot,immediate=false,view=[],sample){
   if(!this.ctx||!this.ambience)return;this.shot=shot;this.profile=crowdProfile(this.race,this.plan,time,shot,sample);const now=this.ctx.currentTime;
@@ -156,7 +217,7 @@ export class RaceAudio {
    if(immediate)param.setValueAtTime(value,now);else param.setTargetAtTime(value,now,.16);
   }
  }
- sync(race,time,playing,speed,shot,view=[],sample){this.cursor=time;this.speed=speed;if(!playing){if(this.playing)this.pause();return;}if(this.playing&&this.buffers)this.updateGains(time,shot,false,view,sample);}
+ sync(race,time,playing,speed,shot,view=[],sample){this.cursor=time;this.speed=speed;if(!playing){if(this.playing)this.pause();return;}if(this.playing&&this.buffers){if(race.live)this.updateLive(race,time,sample);this.updateGains(time,shot,false,view,sample);}}
  captureStream(){if(!this.ctx)throw Error('Press Play first');if(!this.capture){this.capture=this.ctx.createMediaStreamDestination();this.limiter.connect(this.capture);}return this.capture.stream;}
  get diagnostics(){return {state:this.ctx?.state??'locked',playing:this.playing,muted:this.muted,volume:this.masterVolume,crowdVolume:this.crowdVolume,hoofVolume:this.hoofVolume,powerVolume:this.powerVolume,powerClips:this.powerBuffers.size,powerGain:this.powerMaster?.gain.value??0,hoofRiders:this.playing?[...this.horseChannels.values()].filter(h=>this.cursor>=this.plan.delay&&this.cursor<h.finish).length:0,horseVoices:this.horseChannels.size,loaded:this.buffers?Object.keys(this.buffers):[],activeSources:this.sources.size,hoofGain:this.hooves?.gain.value??0,profile:this.profile,events:this.events.map(e=>({...e}))};}
  dispose(){this.pause();void this.ctx?.close();}

@@ -8,8 +8,8 @@ import {Game} from './server/game.js';
 import {createServer} from './server/http.js';
 import {BET_TYPES,ticketReturn} from './betting.js';
 const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-wps-')),out='review/deployment/wps-local';await mkdir(out,{recursive:true});
-let offset=0;
-const game=new Game(path.join(dir,'game.sqlite'),{clock:()=>Date.now()+offset,bettingMs:60000});
+let now=Date.now();
+const game=new Game(path.join(dir,'game.sqlite'),{clock:()=>now,bettingMs:60000});
 const server=createServer(game,{site:path.resolve('site')});await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const outside=[],errors=[],pages=[];
 const proxy=http.createServer((req,res)=>{
@@ -28,10 +28,11 @@ try{
  await a.locator('#mp-create').click();await a.locator('#mp-room-name').waitFor();const code=(await a.locator('#mp-room-name').textContent()).split(' ')[1];
  await b.locator('#mp-code').fill(code);await b.getByRole('button',{name:'Join room',exact:true}).click();await b.locator('#mp-members').filter({hasText:'Alice'}).waitFor();await a.locator('#mp-start').click();
  await a.locator('#race-betting-banner[data-state=open]').waitFor();await b.locator('#race-betting-banner[data-state=open]').waitFor();
- const initial=parseInt(await b.locator('#race-bet-countdown').textContent());offset+=5000;
+ const initial=parseInt(await b.locator('#race-bet-countdown').textContent());now+=5000;
  await b.waitForFunction(n=>parseInt(document.querySelector('#race-bet-countdown').textContent)<=n,initial-4);
- const beforeReload=parseInt(await b.locator('#race-bet-countdown').textContent());await b.reload();await b.locator('#mp-name').filter({hasText:'Bobby'}).waitFor();await b.locator('#race-betting-banner[data-state=open]').waitFor();
- assert.ok(parseInt(await b.locator('#race-bet-countdown').textContent())<=beforeReload);
+ const closes=game.latest(code).closes;await b.reload();await b.locator('#mp-name').filter({hasText:'Bobby'}).waitFor();await b.locator('#race-betting-banner[data-state=open]').waitFor();
+ const afterReload=parseInt(await b.locator('#race-bet-countdown').textContent()),expected=Math.ceil((closes-now)/1000);
+ assert.equal(game.latest(code).closes,closes);assert.ok(afterReload<=expected&&afterReload>=expected-2,'reload preserves the absolute betting deadline');
  await a.locator('#mp-tab-history').click();await a.locator('#race-place-bet').click();assert.equal(await a.locator('#mp-tab-live').getAttribute('aria-selected'),'true');assert.ok(await a.locator('#mp-bet-form').isVisible());
  await a.locator('#race-betting-banner').screenshot({path:`${out}/countdown-desktop.png`});await b.locator('#race-betting-banner').screenshot({path:`${out}/countdown-mobile.png`});
  report.checks.push('race-screen countdown follows absolute server deadline through reload; shortcut opens betting from the history tab');
@@ -45,10 +46,12 @@ try{
  const during=(await api(a,`/api/rooms/${code}`)).data.room;assert.equal(during.race.bets.length,3);assert.equal(during.race.definition,null);
  await a.locator('#multiplayer').screenshot({path:`${out}/tickets-desktop.png`});await b.locator('#multiplayer').screenshot({path:`${out}/tickets-mobile.png`});
  report.checks.push('Win, Place and Show locked separately; exact preview including fractional-coin rounding; duplicate rejected; countdown stays visible after all tickets');
- offset+=61000;game.tick();await Promise.all([a,b].map(p=>p.locator('#race-betting-banner[data-state=closed]').waitFor()));
+ now+=61000;game.tick();await Promise.all([a,b].map(p=>p.locator('#race-betting-banner[data-state=closed]').waitFor()));
  const late=await api(a,`/api/rooms/${code}/bets`,{horse:'trump',stake:50,kind:'show'});assert.equal(late.status,400);assert.match(late.data.error,/closed/);
  report.checks.push('banner closes automatically and server rejects late typed bets');
- offset+=64000;game.tick();await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
+ // Local fixture clock follows the actual last crossing, including live powers'
+ // variable finish time; the public room exposes only a fixed horizon until done.
+ now+=Math.max(0,game.latest(code).ends-game.clock())+1000;game.tick();await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
  const snapshots=[];
  for(const p of[a,b]){
   const me=(await api(p,'/api/me')).data.user,room=(await api(p,`/api/rooms/${code}`)).data.room;

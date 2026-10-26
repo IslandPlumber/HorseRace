@@ -25,7 +25,7 @@ Cast-Iron Cookware or Industrial Paperwork, but the purchased level is shared.
 | Tack | Distraction blinkers | 2.5% less incoming slowing | 10 |
 | Power | Power punch | 2% stronger boost, slow, jolt and friendly assist | 10 |
 | Power | Make it last | 2.5% longer boost and target effect | 10 |
-| Power | Delivery service | 1m more area range, earlier cast, quicker projectile | 10 |
+| Power | Delivery service | 1m more area range, quicker projectile | 10 |
 | Power | One more for the road | 4% longer self boost; level 5 unlocks a reserve cast | 5 |
 | Power | Keep your cool | 0.4% extra pace, 8% less rhythm loss, 3% less corner loss during own boost | 10 |
 | Stable | Club purse bonus | 4% more coins for your own finish | 10 |
@@ -39,8 +39,9 @@ speeds acceleration through the attack and briefly afterward. It shortens
 hostile effects only, never a friendly mitten boost. Per-target end times persist
 in the race so recovery visuals match each defender's actual resistance.
 
-The reserve move fires automatically around 82-90% of that rider's course, at
-65% strength. Each cast has a unique saved event ID and the same target rules.
+Players choose when to use each move in live club races. Reserve level 5 gives
+a second player-controlled charge at 65% strength, after the first move's recovery
+window. Each cast has a unique saved event ID and the same target rules.
 A leader never attacks itself, and a finished winner is not replaced by second
 place. CPU riders keep zero workshop levels and one move. A reserve cast can
 fail to find a valid target, just like the original move.
@@ -80,8 +81,10 @@ accounts begin with zero workshop levels; their old purchases are preserved.
 Entries freeze at betting open. All buying stays locked for active entrants
 until settlement; selecting a different tab cannot bypass the server's lock.
 
-The `skills-v6-workshop` simulation saves upgraded movement, per-target recovery
-windows and both casts once, with no reroll after restart. Older definitions keep
+The `skills-v7-live` simulation saves the private seed and accepted activation log,
+upgraded movement, per-target recovery windows and both casts, with no reroll
+after restart. Later casts change future movement without rewriting the past.
+Older definitions keep
 their original movement and outcome. Deploy with `progression.js` alongside the
 engine. Roll back only to code that understands these levels, or first settle
 active upgraded rounds with compatible code. Never restore an old database to
