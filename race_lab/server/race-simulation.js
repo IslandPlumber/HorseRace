@@ -4,7 +4,7 @@ import { POWERS } from "../powers.js";
 
 // A versioned, server-owned simulation. All clients receive the same persisted
 // distance timeline; finish order is measured from its crossings, never drawn.
-export const SIMULATION_VERSION = "skills-v3-powers";
+export const SIMULATION_VERSION = "skills-v4-leader-powers";
 const STEP = 0.125;
 const WINDOW = 68;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -86,38 +86,6 @@ function runField(seed, entrants, lanes, track, powers) {
   const horses = entrants.map((e, i) => makeHorse(seed, e, lanes[i], track));
   const events = [];
   for (let time = 0; time < 120 && horses.some(h => !h.finish); time += STEP) {
-    // Choose every target from the same frame, before moving anybody. Cast array
-    // order cannot grant an earlier hit or change a target's position.
-    const firing = powers ? horses.filter(h => !h.used && !h.finish &&
-      h.distance >= track.length * h.powerAt).sort((a,b) => a.id.localeCompare(b.id)) : [];
-    for (const h of firing) {
-      const p = POWERS[h.id];
-      const location = runner => trackPoint(track, runner.distance,
-        (runner.lane - (horses.length - 1) / 2) * track.laneWidth);
-      const origin = location(h);
-      let targets;
-      if (p.assist) {
-        const last = [...horses].filter(other => !other.finish)
-          .sort((a,b) => a.distance - b.distance || a.id.localeCompare(b.id))[0];
-        targets = last && last !== h ? [last] : [];
-      } else {
-        targets = horses.filter(other => other !== h && !other.finish).map(other => {
-          const point = location(other);
-          return {horse: other, distance: Math.hypot(point.x-origin.x, point.z-origin.z)};
-        }).filter(other => other.distance <= (p.radius ?? 0))
-          .sort((a,b) => a.distance-b.distance || a.horse.id.localeCompare(b.horse.id))
-          .slice(0, p.targets ?? 0).map(other => other.horse);
-      }
-      const hitTime = time + .45;
-      h.used = true;
-      h.effects.push({start: time, end: time + p.duration, boost: p.boost});
-      for (const target of targets) target.effects.push({start: hitTime, end: hitTime + p.hitDuration,
-        boost: p.assist ?? 0, slow: (p.slow ?? 0) * (1 - target.skills.focus * .06)});
-      events.push({id: `power-${h.id}`, type: 'caption', power: p.effect, actor: h.id,
-        time, duration: p.duration, hitTime, hitDuration: p.hitDuration ?? 0,
-        targets: targets.map(other => other.id), assist: Boolean(p.assist),
-        text: `${p.name}! ${targets.length ? (p.assist ? 'Shared horsepower for ' : 'Caught: ') + targets.map(t=>t.id).join(', ') + '.' : p.slow ? 'The pack escapes the distraction.' : 'A burst of horsepower!'}`});
-    }
     for (const horse of horses) {
       if (horse.finish) continue;
       // Preserve the original per-horse reaction clock and luck stream.
@@ -156,6 +124,63 @@ function runField(seed, entrants, lanes, track, powers) {
       // Preserve power starts/ends while compressing the distance timeline.
       boundary ||= horse.effects.some(e => Math.abs(localTime-e.start)<STEP || Math.abs(localTime-e.end)<STEP);
       horse.points.push({ time: localTime + STEP, distance: nextDistance, boundary });
+    }
+    // Every horse's sampled segment now covers this exact shared time. Freeze
+    // activation positions into the replay so even a nose-ahead leader agrees
+    // with the live standings after timeline compression.
+    const sharedDistance = horse => {
+      const b=horse.points.at(-1),a=horse.points.at(-2);
+      return b.time<=time ? b.distance : a.distance+(b.distance-a.distance)*(time-a.time)/(b.time-a.time);
+    };
+    const finished = horse => horse.finish !== undefined && horse.finish<=time;
+    const firing = powers ? horses.filter(h => !h.used && !finished(h) &&
+      sharedDistance(h) >= track.length * h.powerAt).sort((a,b) => a.id.localeCompare(b.id)) : [];
+    for (const h of firing) {
+      const p = POWERS[h.id];
+      const location = runner => trackPoint(track, sharedDistance(runner),
+        (runner.lane - (horses.length - 1) / 2) * track.laneWidth);
+      const origin = location(h);
+      let targets;
+      if (p.targeting === 'leader') {
+        // Include finishers when identifying the overall leader: once someone
+        // has won, never quietly retarget the next unfinished horse.
+        const leader = [...horses].sort((a,b) => {
+          if (finished(a) || finished(b)) return finished(a) && finished(b) ? a.finish-b.finish : finished(a) ? -1 : 1;
+          return sharedDistance(b)-sharedDistance(a) || a.lane-b.lane;
+        })[0];
+        targets = leader !== h && !finished(leader) ? [leader] : [];
+      } else if (p.assist) {
+        const last = [...horses].filter(other => !finished(other))
+          .sort((a,b) => sharedDistance(a)-sharedDistance(b) || a.lane-b.lane)[0];
+        targets = last && last !== h ? [last] : [];
+      } else {
+        targets = horses.filter(other => other !== h && !finished(other)).map(other => {
+          const point = location(other);
+          return {horse: other, distance: Math.hypot(point.x-origin.x, point.z-origin.z)};
+        }).filter(other => other.distance <= (p.radius ?? 0))
+          .sort((a,b) => a.distance-b.distance || a.horse.id.localeCompare(b.horse.id))
+          .slice(0, p.targets ?? 0).map(other => other.horse);
+      }
+      const hitTime = time + .45;
+      h.used = true;
+      h.effects.push({start: time, end: time + p.duration, boost: p.boost});
+      for (const target of targets) target.effects.push({start: hitTime, end: hitTime + p.hitDuration,
+        boost: p.assist ?? 0, slow: (p.slow ?? 0) * (1 - target.skills.focus * .06)});
+      const detail = targets.length ? (p.targeting === 'leader' ? 'Leader targeted: ' : p.assist ? 'Shared horsepower for ' : 'Caught: ') +
+        targets.map(t=>t.id).join(', ') + '.' : p.targeting === 'leader' ?
+        'No rival leader to hit. Keeping the speed boost!' : p.slow ? 'The pack escapes the distraction.' : 'A burst of horsepower!';
+      events.push({id: `power-${h.id}`, type: 'caption', power: p.effect, actor: h.id,
+        time, duration: p.duration, hitTime, hitDuration: p.hitDuration ?? 0,
+        targets: targets.map(other => other.id), assist: Boolean(p.assist),
+        targeting: p.targeting ?? (p.assist ? 'last' : p.slow ? 'nearby' : 'self'), detail,
+        text: `${p.name}${/[!?]$/.test(p.name) ? '' : '!'} ${detail}`});
+    }
+    if (firing.length) for(const horse of horses) {
+      const b=horse.points.at(-1);
+      if(b.time<time)continue;
+      if(b.time===time){b.boundary=true;continue;}
+      const distance=sharedDistance(horse);
+      horse.points.splice(-1,0,{time,distance,boundary:true});
     }
   }
   if (horses.some(h => !h.finish)) throw Error("Race simulation failed to finish.");

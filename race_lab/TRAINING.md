@@ -1,6 +1,6 @@
 # Training and shared race simulation
 
-Club races use the server-owned `skills-v3-powers` model in `server/race-simulation.js`.
+Club races use the server-owned `skills-v4-leader-powers` model in `server/race-simulation.js`.
 The server simulates distance, acceleration, pace, cornering and fatigue, then
 derives the finishing order from actual finish crossings. It saves that complete
 timeline once when betting closes. Every browser plays the same saved motion.
@@ -71,6 +71,6 @@ These are sample results for that field, not a promised probability for every
 room. Re-run the matched-seed audit when tuning the model, including individual
 skills, and retain the version string when describing recorded evidence.
 
-With powers enabled, a separate 1,000-seed audit measured 66.4% wins for
-the 4/2/1 build and 89% for maximum training against untrained rivals.
-Untrained character wins ranged from 12.4% to 16%.
+With the v4 leader-targeting powers enabled, a separate 1,000-seed audit measured
+66.7% wins for the 4/2/1 build and 90.1% for maximum training against untrained
+rivals. Untrained character wins ranged from 12% to 16.3%.

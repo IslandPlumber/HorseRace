@@ -7,7 +7,7 @@ import path from 'node:path';
 import {Game} from './server/game.js';
 import {createServer} from './server/http.js';
 import {simulateRace} from './server/race-simulation.js';
-import {ACTOR_IDS} from './race-core.js';
+import {ACTOR_IDS,sampleRace} from './race-core.js';
 import {POWERS,powerEvents} from './powers.js';
 import {BET_TYPES,ticketReturn} from './betting.js';
 const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-powers-')),out='review/deployment/powers-local';
@@ -45,6 +45,7 @@ try{
  for(const p of[a,b]){assert.ok(await p.locator('#power-feed').isVisible());assert.match(await p.locator('#power-feed').textContent(),new RegExp(POWERS[first.actor].name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));}
  await a.locator('#race-preview').screenshot({path:`${out}/live-power.png`});
  await b.reload();await b.locator('#mp-name').filter({hasText:'PowerBobby'}).waitFor();
+ await b.waitForFunction(id=>window.raceLab?.ready&&window.raceLab.race.id===id,race.id);
  assert.deepEqual(await b.evaluate(()=>window.raceLab.race),race);
  report.checks.push('two players receive identical seven-power timeline after cutoff; active props/feed and reload preserve the same race');
  offset+=70000;game.tick();await a.locator('#mp-phase').filter({hasText:'prizes saved'}).waitFor();
@@ -68,6 +69,24 @@ try{
   assert.ok((await preview.evaluate(()=>window.raceLab.powers.active)).includes(e.actor));
   await preview.locator('#race-preview').screenshot({path:`${out}/${e.actor}.png`});
  }
+ // Preview a trained front-runner outside normal area-attack range.
+ let leaderFixture;
+ for(let i=0;i<100;i++){
+  const candidate=simulateRace(`leader-visual-${i}`,{entrants:ACTOR_IDS.map(horse=>({horse,...(horse==='elon'?{speed:5,stamina:5,focus:5}:{})}))});
+  const attacks=powerEvents(candidate).filter(e=>e.targeting==='leader'&&e.targets.length);
+  if(attacks.length===2&&attacks.every(e=>{
+   const frame=sampleRace(candidate,e.time),source=frame.runners.find(r=>r.id===e.actor),target=frame.runners.find(r=>r.id===e.targets[0]);
+   return target.rank===1&&Math.hypot(target.x-source.x,target.z-source.z)>16;
+  })){leaderFixture=candidate;break;}
+ }
+ assert.ok(leaderFixture);await preview.evaluate(async def=>window.raceLab.loadRace(def),leaderFixture);
+ for(const e of powerEvents(leaderFixture).filter(e=>e.targeting==='leader')){
+  await preview.evaluate(t=>window.raceLab.seek(t),e.hitTime+.1);
+  assert.ok((await preview.evaluate(()=>window.raceLab.powers.active)).includes(e.actor));
+  assert.match(await preview.locator('#power-feed').textContent(),/Leader targeted/);
+  await preview.locator('.workbench').screenshot({path:`${out}/leader-${e.actor}.png`});
+ }
+ report.checks.push('paperwork and homing frying pan visibly target the actual leader beyond 16 metres');
  await preview.evaluate(()=>window.raceLab.seek(0));assert.deepEqual(await preview.evaluate(()=>window.raceLab.powers.active),[]);
  const resources=[];
  for(let i=0;i<3;i++){

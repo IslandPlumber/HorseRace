@@ -38,7 +38,7 @@ test('hat can hit several rivals; attacks obey range and targets are still racin
     const r=frame.runners.find(r=>r.id===id);assert.equal(r.finished,false);
     // The canonical state sits at most one 0.125-second simulation step
     // behind sampled motion; allow the corresponding travel distance.
-    if(!e.assist)assert.ok(Math.hypot(r.x-source.x,r.z-source.z)<=POWERS[e.actor].radius+3);
+    if(!e.assist&&e.targeting!=='leader')assert.ok(Math.hypot(r.x-source.x,r.z-source.z)<=POWERS[e.actor].radius+3);
     assert.ok(activePowerEffects(race,id,e.hitTime+.001).some(a=>a.event.id===e.id&&a.kind!=='boost'));
    }
   }
@@ -66,6 +66,33 @@ test('rocket boosts real distance and hat reduces a rival’s actual pace before
  }
  assert.ok(rocket>10,'rocket is a real acceleration/cruise boost');
  assert.ok(hat>0,'a hat hit changes movement, not only captions');
+});
+
+test('leader hunters hit the live leader at activation, including distant rivals, without self hits',()=>{
+ let distant=0,leading=0,hits=0;
+ for(let i=0;i<200;i++){
+  const field=entrants.map(e=>({...e,...(e.horse==='elon'?{speed:5,stamina:5,focus:5}:{})}));
+  const race=simulateRace(`leader-${i}`,{entrants:field});
+  for(const e of powerEvents(race).filter(e=>e.targeting==='leader')){
+   const frame=sampleRace(race,e.time),leader=frame.runners.find(r=>r.rank===1),source=frame.runners.find(r=>r.id===e.actor);
+   if(leader.id===e.actor||leader.finished){assert.deepEqual(e.targets,[]);leading++;}
+   else{
+    assert.deepEqual(e.targets,[leader.id],`must hit the actual visible leader, seed ${i}`);
+    hits++;if(Math.hypot(leader.x-source.x,leader.z-source.z)>16)distant++;
+   }
+  }
+ }
+ assert.ok(hits>100);assert.ok(distant>20,'attacks reach a front-runner outside normal area range');
+ // Equal fields also exercise the attack owners holding first place themselves.
+ for(let i=0;i<60;i++){
+  const race=simulateRace(`self-lead-${i}`,{entrants});
+  for(const e of powerEvents(race).filter(e=>e.targeting==='leader')){
+   const leader=sampleRace(race,e.time).standings[0];
+   if(leader===e.actor){assert.deepEqual(e.targets,[]);leading++;}
+   else assert.deepEqual(e.targets,[leader]);
+  }
+ }
+ assert.ok(leading>0,'a leader never attacks itself or retargets second place');
 });
 
 test('powers preserve the strong training advantage and all identities remain competitive',()=>{

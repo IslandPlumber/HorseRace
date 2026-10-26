@@ -15,7 +15,7 @@ test('skill simulation is deterministic, immutable and has real timeline-derived
   assert.deepEqual(simulateRace('same', options), a);
   assert.deepEqual(options, before);
   assert.notDeepEqual(run('other', {}), a);
-  assert.equal(a.simulation.model, 'skills-v3-powers');
+  assert.equal(a.simulation.model, 'skills-v4-leader-powers');
   for (let seed = 0; seed < 80; seed++) {
     const race = run(seed, {speed: seed % 6, stamina: (seed + 1) % 6, focus: (seed + 2) % 6});
     assert.equal(validateRace(race), race);

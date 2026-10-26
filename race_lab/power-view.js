@@ -43,9 +43,8 @@ export class PowerView {
             sheet.rotation.y=n*.65;
           }
         } else if (id === 'gordon') {
-          mesh(new THREE.CylinderGeometry(.08,.08,1.8,8),'#bf8a4e');
-          mesh(new THREE.SphereGeometry(.45,12,8),'#c9d0d5',0,1).scale.z=.22;
-          mesh(new THREE.BoxGeometry(.7,.7,.12),'#c9d0d5',0,-1.1);
+          mesh(new THREE.CylinderGeometry(.7,.7,.16,18),'#444c51').rotation.x=Math.PI/2;
+          mesh(new THREE.BoxGeometry(.18,1.4,.15),'#b48656',0,-1.2);
         } else {
           for (let n=0;n<5;n++) mesh(new THREE.SphereGeometry(.65,10,8),p.color,
             Math.cos(n*2.4)*.65,Math.sin(n*1.3)*.4,Math.sin(n*2.4)*.65);
@@ -102,7 +101,7 @@ export class PowerView {
     feed.replaceChildren();
     const heading=document.createElement('h3');heading.textContent='Trackside antics';feed.append(heading);
     if(!past.length){const note=document.createElement('p');note.textContent='One automatic signature move per rider. Watch for the sparks.';feed.append(note);}
-    for(const event of past){const row=document.createElement('p'),tag=document.createElement('strong');tag.textContent=`${event.time.toFixed(1)}s · ${POWERS[event.actor].name}`;row.append(tag,document.createTextNode(event.text.slice(event.text.indexOf('!')+1)));feed.append(row);}
+    for(const event of past){const row=document.createElement('p'),tag=document.createElement('strong');tag.textContent=`${event.time.toFixed(1)}s · ${POWERS[event.actor].name}`;row.append(tag,document.createTextNode(event.detail ?? event.text.slice(event.text.indexOf('! ')+2)));feed.append(row);}
   }
   get diagnostics(){return {active:[...this.groups].filter(([,g])=>g.group.visible).map(([id])=>id),props:21};}
   dispose(){this.root.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});this.root.removeFromParent();}

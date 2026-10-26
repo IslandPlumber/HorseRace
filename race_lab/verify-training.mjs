@@ -38,7 +38,7 @@ try{
  await b.locator('#mp-code').fill(code);await b.getByRole('button',{name:'Join room',exact:true}).click();await b.locator('#mp-members').filter({hasText:'Alice'}).waitFor();await a.locator('#mp-start').click();
  await b.locator('#mp-bet-form').waitFor();await b.getByRole('button',{name:'Place bet',exact:true}).click();await b.locator('#mp-bet-note').filter({hasText:'Locked in'}).waitFor();
  assert.equal(game.latest(code).definition,null);for(const p of[a,b])for(const button of await p.locator('#mp-upgrades button').all())assert.ok(await button.isDisabled());
- offset+=21000;game.tick();await Promise.all([a,b].map(p=>p.waitForFunction(()=>window.raceLab.multiplayer.managed&&window.raceLab.state==='playing'&&window.raceLab.race.simulation?.model==='skills-v3-powers')));
+ offset+=21000;game.tick();await Promise.all([a,b].map(p=>p.waitForFunction(()=>window.raceLab.multiplayer.managed&&window.raceLab.state==='playing'&&window.raceLab.race.simulation?.model==='skills-v4-leader-powers')));
  const def=JSON.parse(game.latest(code).definition);assert.deepEqual(def.cast.find(r=>r.id==='elon').skills,{speed:2,stamina:1,focus:1});assert.deepEqual(await a.evaluate(()=>window.raceLab.race),await b.evaluate(()=>window.raceLab.race));
  const replay=simulateRace(def.seed,{entrants:JSON.parse(game.latest(code).entrants),title:def.title});replay.id=def.id;assert.deepEqual(replay,def);
  assert.deepEqual(sampleRace(def,64).standings,def.outcome);report.checks.push('purchased levels frozen into the same server-simulated timeline in both browsers; actual crossings determine outcome');

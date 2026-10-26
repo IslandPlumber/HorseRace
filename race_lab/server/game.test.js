@@ -32,7 +32,7 @@ test("race simulation uses frozen purchased levels and survives a restart withou
   });
   advance(1001); g.tick();
   const def = g.room(a.user.id, code).race.definition;
-  assert.equal(def.simulation.model, 'skills-v3-powers');
+  assert.equal(def.simulation.model, 'skills-v4-leader-powers');
   assert.equal(def.events.filter(e=>e.power).length,7);
   const replay = simulateRace(def.seed, {entrants: entries, duration: 10, title: def.title});
   replay.id = def.id;
