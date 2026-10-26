@@ -5,7 +5,7 @@ import { ACTOR_IDS, sampleRace, validateRace, generateRace } from '../race-core.
 import { finishTime, distanceAt, hoofSchedule, gaitClock, gaitPhase } from '../gait.js';
 import { runnerStatus } from '../training.js';
 const entrants = (skills = {}) => ACTOR_IDS.map(horse => ({horse, ...(horse === 'elon' ? skills : {})}));
-const run = (seed, skills) => simulateRace(seed, {entrants: entrants(skills)});
+const run = (seed, skills) => simulateRace(seed, {entrants: entrants(skills), powers: false});
 const elon = race => race.cast.find(r => r.id === 'elon');
 const finish = race => finishTime(race, elon(race));
 
@@ -15,7 +15,7 @@ test('skill simulation is deterministic, immutable and has real timeline-derived
   assert.deepEqual(simulateRace('same', options), a);
   assert.deepEqual(options, before);
   assert.notDeepEqual(run('other', {}), a);
-  assert.equal(a.simulation.model, 'skills-v2');
+  assert.equal(a.simulation.model, 'skills-v3-powers');
   for (let seed = 0; seed < 80; seed++) {
     const race = run(seed, {speed: seed % 6, stamina: (seed + 1) % 6, focus: (seed + 2) % 6});
     assert.equal(validateRace(race), race);

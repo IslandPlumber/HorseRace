@@ -94,6 +94,11 @@ Focus helps starts, corners and rhythm. Finish crossings determine the outcome.
 The shared timeline is persisted at betting cutoff and reused after restart;
 older saved definitions retain their original outcomes and payouts. Round end
 follows the final crossing, within the original maximum time slot. See
+`../POWERS.md` for the automatic, server-simulated signature move for every rider.
+Include `powers.js` alongside the race engine in releases. Power targets, times
+and resulting movement persist in the existing race definition; no database
+schema or coin/prize change is required. Old race definitions remain unchanged.
+See
 `../TRAINING.md` for the model and balance audit. `npm run test:training` verifies
 the real upgrade interface and shared motion on desktop and phone. Prices,
 existing levels, balances and prizes are unchanged. Win/Place/Show tickets use

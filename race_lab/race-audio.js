@@ -1,11 +1,26 @@
 import {buildAudioPlan,crowdProfile,cueSchedule,cheerSchedule} from './audio-plan.js';
 import {GAIT_HZ,GAIT_LOOP,hoofSchedule} from './gait.js';
+import {powerEvents} from './powers.js';
 const clamp=x=>Math.max(0,Math.min(1,x));
 export function starterShot(context){
  const b=context.createBuffer(1,Math.ceil(context.sampleRate*.65),context.sampleRate),data=b.getChannelData(0);let seed=7331;
  for(let i=0;i<data.length;i++){const t=i/context.sampleRate;seed=(Math.imul(seed,1664525)+1013904223)>>>0;const noise=seed/2147483648-1;
  data[i]=noise*(.85*Math.exp(-t*95)+.25*Math.exp(-t*16))+Math.sin(2*Math.PI*(190*t-80*t*t))*.25*Math.exp(-t*32)+(t>.06?noise*.10*Math.exp(-(t-.06)*20):0);}
  let peak=0;for(const n of data)peak=Math.max(peak,Math.abs(n));for(let i=0;i<data.length;i++)data[i]*=.82/peak;return b;
+}
+/** Original cartoon foley, with no sampled speech or external recordings. */
+export function powerSound(context,kind){
+ const seconds=kind==='rocket'?.85:.5,buffer=context.createBuffer(1,Math.ceil(context.sampleRate*seconds),context.sampleRate),out=buffer.getChannelData(0);
+ let seed=9123;
+ for(let i=0;i<out.length;i++){
+  const t=i/context.sampleRate,u=t/seconds;seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+  const noise=seed/2147483648-1,envelope=Math.sin(Math.PI*u)*Math.exp(-u*2);
+  const pitch=kind==='icecream'?700:kind==='mittens'?450:kind==='chill'?220:kind==='kitchen'?1000:330;
+  out[i]=(kind==='rocket'?noise*.48+Math.sin(t*180)*.15:
+   kind==='hat'||kind==='filibuster'?noise*.28+Math.sin(2*Math.PI*(pitch*t-180*t*t))*.18:
+   Math.sin(2*Math.PI*(pitch*t+140*t*t))*.28+noise*.06)*envelope;
+ }
+ return buffer;
 }
 /** Dry dirt impacts, with a little real recorded hoof texture; one horse per voice. */
 export function hoofCycle(context,natural,id){
@@ -108,6 +123,13 @@ export class RaceAudio {
    const gain=c.createGain();gain.gain.value=cue.id==='bugle'?1.05:.78;gain.connect(this.runGain);
    this.source(this.buffers[cue.id],gain,{after:cue.after/this.speed,offset:cue.offset,rate:this.speed,duration:cue.duration});
    this.events.push({id:cue.id,raceTime:cue.id==='shot'?this.plan.delay:time,after:cue.after/this.speed,generation:this.generation});if(this.events.length>100)this.events.shift();
+  }
+  for(const event of powerEvents(this.race)) {
+   if(event.time<time)continue; // Joining late never replays old attacks.
+   const gain=c.createGain();gain.gain.value=.35;gain.connect(this.runGain);
+   this.source(powerSound(c,event.power),gain,{after:(event.time-time)/this.speed,rate:this.speed});
+   this.events.push({id:event.id,raceTime:event.time,generation:this.generation});
+   if(this.events.length>100)this.events.shift();
   }
   this.updateGains(time,'broadcast',true);
  }

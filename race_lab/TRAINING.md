@@ -1,6 +1,6 @@
 # Training and shared race simulation
 
-Club races use the server-owned `skills-v2` model in `server/race-simulation.js`.
+Club races use the server-owned `skills-v3-powers` model in `server/race-simulation.js`.
 The server simulates distance, acceleration, pace, cornering and fatigue, then
 derives the finishing order from actual finish crossings. It saves that complete
 timeline once when betting closes. Every browser plays the same saved motion.
@@ -16,8 +16,12 @@ Practice examples retain their scripted scenarios.
 - **Focus:** each level reduces the variable part of gate reaction and the
   corner pace penalty by 11% and 13% respectively, the probability of a brief rhythm interruption by
   14%, and its duration by 8%, all relative to the untrained value. The fixed
-  minimum reaction remains. Rhythm losses slow the target temporarily; horses
+  minimum reaction remains. Each Focus level also softens incoming power slowdowns
+  by 6%, up to 30% at maximum. Rhythm losses slow the target temporarily; horses
   decelerate and recover rather than teleporting or stopping abruptly.
+
+Every rider also has one automatic signature power per race; see [POWERS.md](POWERS.md).
+Training mechanics and prices are unchanged.
 
 These effects combine through movement; they are not flat additions to win odds.
 Independent race-day form, changing effort and small rhythm interruptions keep
@@ -66,3 +70,7 @@ the previous v1 maximum-training rate of approximately 31% too subtle.
 These are sample results for that field, not a promised probability for every
 room. Re-run the matched-seed audit when tuning the model, including individual
 skills, and retain the version string when describing recorded evidence.
+
+With powers enabled, a separate 1,000-seed audit measured 66.4% wins for
+the 4/2/1 build and 89% for maximum training against untrained rivals.
+Untrained character wins ranged from 12.4% to 16%.

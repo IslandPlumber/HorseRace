@@ -1,7 +1,7 @@
 export const TRAINING = Object.freeze({
   speed: { name: "Speed", description: "Quicker acceleration and a higher cruising pace." },
   stamina: { name: "Stamina", description: "Less fatigue after halfway; more pace left for home." },
-  focus: { name: "Focus", description: "Sharper starts, cleaner turns and fewer losses of rhythm." },
+  focus: { name: "Focus", description: "Sharper starts, cleaner turns, fewer rhythm breaks and softer hits from rival powers." },
 });
 
 /** Explain what is happening now; never expose a future incident or result. */

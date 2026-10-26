@@ -8,6 +8,8 @@ import {RaceAudio} from './race-audio.js';
 import {MultiplayerUI} from './multiplayer.js';
 import {gaitClock} from './gait.js';
 import {parkSky} from './park-scenery.js';
+import {PowerView} from './power-view.js';
+import {powerStatus} from './powers.js';
 let multiplayer=null;
 let needsRender=true;
 
@@ -64,6 +66,7 @@ const castRoot = new THREE.Group();
 const ownHalo=new THREE.Mesh(new THREE.RingGeometry(1.6,1.73,48),new THREE.MeshBasicMaterial({color:'#f2d18a',transparent:true,opacity:.7,side:THREE.DoubleSide,depthWrite:false}));ownHalo.rotation.x=-Math.PI/2;ownHalo.visible=false;scene.add(ownHalo);
 const ownMarker=textSprite('YOU');ownMarker.scale.set(3,.56,1);ownMarker.visible=false;scene.add(ownMarker);
 scene.add(trackRoot, castRoot);
+const powerView = new PowerView(scene);
 const loader = new GLTFLoader();
 const assetPromises = new Map();
 let race = null;
@@ -326,7 +329,8 @@ function renderStandings(sample) {
       const name = document.createElement('span');
       name.className = 'rider-name'; name.textContent = multiplayer?.managed?multiplayer.label(id):(names[id] || id);
       const sub = document.createElement('span'); sub.className = 'rider-sub';
-      details.append(name, sub);
+      const power = document.createElement('span'); power.className = 'rider-power';
+      details.append(name, sub, power);
       const distance = document.createElement('span'); distance.className = 'distance';
       li.append(rank, details, distance);
       return li;
@@ -337,6 +341,7 @@ function renderStandings(sample) {
     const li = $('standings').querySelector(`[data-rider="${runner.id}"]`);
     if (!li) continue;
     li.querySelector('.rider-sub').textContent = runnerStatus(race, runner, time);
+    li.querySelector('.rider-power').textContent = powerStatus(race, runner.id, time);
     li.querySelector('.distance').textContent = runner.finished && Number.isFinite(runner.finishTime) ? `${runner.finishTime.toFixed(2)} s` : `${Math.min(race.track.length, runner.distance).toFixed(1)} m`;
   }
   const first = sample.runners.find((runner) => runner.id === sample.standings[0]);
@@ -404,6 +409,7 @@ function displayFrame(snapCamera = false) {
     actor.puppet.quaternion.copy(parent.invert().multiply(yaw).multiply(neutralPuppet).multiply(deviation));
   }
   course?.update(time,sample);
+  powerView.update(race,sample,time);
   const ownHorse=multiplayer?.room?.race?.entrants.find(e=>e.userId===multiplayer?.user?.id)?.horse;
   const ownRunner=multiplayer?.managed&&sample.runners.find(r=>r.id===ownHorse);
   ownHalo.visible=ownMarker.visible=Boolean(ownRunner);
@@ -510,6 +516,7 @@ window.raceLab = {
   get race() { return race; },
   get multiplayer(){return {managed:multiplayer?.managed??false,online:multiplayer?.online??false,room:multiplayer?.room?.code??null,frame:multiplayer?.frame()};},
   get audio(){return raceAudio.diagnostics;},
+  get powers(){return powerView.diagnostics;},
   captureAudio:()=>raceAudio.captureStream(),
   get time() { return time; },
   get ready() { return Boolean(race && !loading); },
@@ -526,5 +533,5 @@ window.raceLab = {
   loadRace: (definition) => loadRace(definition, { source: 'imported' }), seek, play, pause,
 };
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
-window.addEventListener('pagehide', () => { disposed = true;raceAudio.dispose();multiplayer?.dispose(); renderer.setAnimationLoop(null); observer.disconnect(); });
+window.addEventListener('pagehide', () => { disposed = true;powerView.dispose();raceAudio.dispose();multiplayer?.dispose(); renderer.setAnimationLoop(null); observer.disconnect(); });
 void loadExample('demo-a').then(()=>{multiplayer=new MultiplayerUI({load:def=>loadRace(def,{source:'live'}),onChange:()=>{needsRender=true;document.querySelector('.race-tools').hidden=Boolean(multiplayer?.managed);syncControls();}});});

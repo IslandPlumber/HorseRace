@@ -107,6 +107,17 @@ export function validateRace(race) {
     insist(finite(event.duration) && event.duration > 0 && event.time + event.duration <= race.duration + 1e-8,
       `${event.id}: event duration must be positive and finish within the race`);
     insist(nonempty(event.text) && event.text.length <= 500, `${event.id}: caption must contain 1–500 characters`);
+    if (event.power !== undefined) {
+      insist(['hat','rocket','icecream','filibuster','mittens','kitchen','chill'].includes(event.power), 'unknown power effect');
+      insist(ids.has(event.actor), 'power actor must be in the race');
+      insist(Array.isArray(event.targets) && event.targets.length <= 3 &&
+        new Set(event.targets).size === event.targets.length &&
+        event.targets.every(id => ids.has(id) && id !== event.actor), 'invalid power targets');
+      insist(finite(event.hitTime) && event.hitTime >= event.time && event.hitTime < race.duration &&
+        finite(event.hitDuration) && event.hitDuration >= 0 &&
+        event.hitTime + event.hitDuration <= race.duration, 'invalid power impact window');
+      insist(typeof event.assist === 'boolean', 'power assist flag must be boolean');
+    }
   }
   return race;
 }
