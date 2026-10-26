@@ -1,7 +1,9 @@
 # Rider powers
 
-New club races use `skills-v5-heavy-hits`. Every rider, including CPUs, gets one
-automatic signature move per race. There are no power purchases or activation
+New club races use `skills-v6-workshop`. Every rider, including CPUs, starts with one
+automatic signature move per race. Reserve training can unlock a second late move
+at 65% strength. The workshop also trains power strength, duration, reach and
+control; tack can soften hits and shorten recovery. See [PROGRESSION.md](PROGRESSION.md). There are no power purchases or activation
 requests. The server chooses a seeded activation point between 28% and 66% of
 the course, simulates the whole field together, and persists actual movement,
 targets and event times at betting cutoff. All devices replay those same events.

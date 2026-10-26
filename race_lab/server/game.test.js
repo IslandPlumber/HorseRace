@@ -28,11 +28,11 @@ test("race simulation uses frozen purchased levels and survives a restart withou
   const code = g.create(a.user.id); g.start(a.user.id, code);
   const entries = JSON.parse(g.latest(code).entrants);
   assert.deepEqual(entries.find(e => e.userId === a.user.id), {
-    horse: 'elon', userId: a.user.id, username: 'Trained', speed: 1, stamina: 1, focus: 1,
+    horse: 'elon', userId: a.user.id, username: 'Trained', speed: 1, stamina: 1, focus: 1, upgrades: {},
   });
   advance(1001); g.tick();
   const def = g.room(a.user.id, code).race.definition;
-  assert.equal(def.simulation.model, 'skills-v5-heavy-hits');
+  assert.equal(def.simulation.model, 'skills-v6-workshop');
   assert.equal(def.events.filter(e=>e.power).length,7);
   const replay = simulateRace(def.seed, {entrants: entries, duration: 10, title: def.title});
   replay.id = def.id;

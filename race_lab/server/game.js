@@ -9,6 +9,7 @@ import {
 import { ACTOR_IDS } from "../race-core.js";
 import { simulateRace } from "./race-simulation.js";
 import { BET_TYPES, ticketReturn } from "../betting.js";
+import {UPGRADES,upgradeCost,finishPrize} from '../progression.js';
 export const RULES = {
   startingCoins: 1000,
   prizes: [200, 140, 100, 75, 50, 35, 25],
@@ -19,6 +20,7 @@ export const RULES = {
   betTypes: BET_TYPES,
   upgrades: { speed: 120, stamina: 100, focus: 90 },
   maxLevel: 5,
+  workshop: UPGRADES,
 };
 export class GameError extends Error {
   constructor(message, status = 400) {
@@ -44,6 +46,7 @@ export class Game {
     this.db
       .exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
    CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, username TEXT NOT NULL, name_key TEXT UNIQUE NOT NULL, salt TEXT NOT NULL, password_hash TEXT NOT NULL, coins INTEGER NOT NULL CHECK(coins>=0), points INTEGER NOT NULL DEFAULT 0, horse TEXT NOT NULL DEFAULT 'elon', speed INTEGER NOT NULL DEFAULT 0, stamina INTEGER NOT NULL DEFAULT 0, focus INTEGER NOT NULL DEFAULT 0, wins INTEGER NOT NULL DEFAULT 0, races INTEGER NOT NULL DEFAULT 0);
+   CREATE TABLE IF NOT EXISTS player_upgrades(user_id TEXT NOT NULL REFERENCES users(id),kind TEXT NOT NULL,level INTEGER NOT NULL CHECK(typeof(level)='integer' AND level>=0),PRIMARY KEY(user_id,kind));
    CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS rooms(code TEXT PRIMARY KEY, host_id TEXT NOT NULL REFERENCES users(id), created INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS members(user_id TEXT PRIMARY KEY REFERENCES users(id), code TEXT NOT NULL REFERENCES rooms(code));
@@ -81,8 +84,9 @@ export class Game {
       id,
     );
     requireThat(u, "Sign in again.", 401);
-    return u;
+    return {...u,upgrades:this.workshop(id)};
   }
+  workshop(id){return Object.fromEntries(this.all('SELECT kind,level FROM player_upgrades WHERE user_id=? ORDER BY kind',id).map(r=>[r.kind,r.level]));}
   session(id) {
     this.touch(id);
     const token = randomBytes(32).toString("base64url");
@@ -241,10 +245,18 @@ export class Game {
       return this.profile(id);
     });
   }
-  upgrade(id, kind) {
-    requireThat(Object.hasOwn(RULES.upgrades, kind), "Unknown upgrade.");
+  upgrade(id, kind, expectedLevel) {
+    requireThat(typeof kind==='string'&&(Object.hasOwn(RULES.upgrades, kind)||Object.hasOwn(UPGRADES,kind)), "Unknown upgrade.");
     return this.transaction(() => {
       requireThat(!this.active(id), "Buy upgrades after this race.");
+      if(Object.hasOwn(UPGRADES,kind)){
+        const u=this.profile(id),level=u.upgrades[kind]??0,cost=upgradeCost(kind,level,u.upgrades);
+        requireThat(expectedLevel===undefined||Number.isSafeInteger(expectedLevel)&&expectedLevel===level,'This level changed. Refresh before buying again.',409);
+        requireThat(cost!==null,'This upgrade is at its maximum level.');
+        this.credit(id,-cost,`${UPGRADES[kind].name} · level ${level+1}`,null,`workshop:${id}:${kind}:${level+1}`);
+        this.run('INSERT INTO player_upgrades(user_id,kind,level) VALUES(?,?,?) ON CONFLICT(user_id,kind) DO UPDATE SET level=excluded.level',id,kind,level+1);
+        return this.profile(id);
+      }
       const u = this.profile(id),
         level = u[kind];
       requireThat(
@@ -378,6 +390,7 @@ export class Game {
           speed: u?.speed ?? 0,
           stamina: u?.stamina ?? 0,
           focus: u?.focus ?? 0,
+          ...(u?{upgrades:this.workshop(u.id)}:{}),
         };
       });
       const raceId = randomUUID(),
@@ -467,7 +480,7 @@ export class Game {
       results = def.outcome.map((horse, i) => ({
         ...entrants.find((e) => e.horse === horse),
         place: i + 1,
-        prize: RULES.prizes[i],
+        prize: finishPrize(RULES.prizes[i],entrants.find(e=>e.horse===horse)?.upgrades),
         points: RULES.points[i],
       }));
     for (const e of results) {

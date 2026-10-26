@@ -1,6 +1,6 @@
 # Training and shared race simulation
 
-Club races use the server-owned `skills-v5-heavy-hits` model in `server/race-simulation.js`.
+Club races use the server-owned `skills-v6-workshop` model in `server/race-simulation.js`.
 The server simulates distance, acceleration, pace, cornering and fatigue, then
 derives the finishing order from actual finish crossings. It saves that complete
 timeline once when betting closes. Every browser plays the same saved motion.
@@ -21,7 +21,7 @@ Practice examples retain their scripted scenarios.
   decelerate and recover rather than teleporting or stopping abruptly.
 
 Every rider also has one automatic signature power per race; see [POWERS.md](POWERS.md).
-Training mechanics and prices are unchanged.
+The Upgrades tab adds 20 specialist horse, tack, power and stable paths plus repeatable mastery. See [PROGRESSION.md](PROGRESSION.md). Original training mechanics and prices are unchanged.
 
 These effects combine through movement; they are not flat additions to win odds.
 Independent race-day form, changing effort and small rhythm interruptions keep

@@ -1,3 +1,5 @@
+import {WorkshopUI} from "./workshop.js";
+import {UPGRADES} from "./progression.js";
 import { betSlip, roundFromRoom, historyList } from "./bet-slips.js";
 import { RoomBrowser } from "./room-browser.js";
 import { TRAINING } from "./training.js";
@@ -61,13 +63,13 @@ export class MultiplayerUI {
   <p id="mp-error" role="alert" hidden></p>
   <form id="mp-auth" class="club-row"><label class="field">Username<input id="mp-username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required></label><label class="field">Password<input id="mp-password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><button class="button primary" type="submit" name="action" value="login">Sign in</button><button class="button" type="submit" name="action" value="register">Create account</button></form>
   <div id="mp-account" hidden><div class="club-row account-row"><strong id="mp-name"></strong><span id="mp-wallet"></span><button id="mp-logout" class="button quiet">Sign out</button></div>
-  <div class="club-tabs" role="tablist" aria-label="Racing club"><button id="mp-tab-live" class="club-tab" role="tab" aria-controls="mp-live-panel" aria-selected="true">Live room & stable</button><button id="mp-tab-history" class="club-tab" role="tab" aria-controls="mp-history-panel" aria-selected="false" tabindex="-1">Bet slips & results <span id="mp-history-count">0</span></button></div>
-  <div id="mp-live-panel" class="club-grid" role="tabpanel" aria-labelledby="mp-tab-live"><div class="club-sidebar"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Train how your horse runs. Race-day form and luck still matter.</p><div id="mp-upgrades" class="training-grid" aria-label="Train your racer"></div><details class="training-help"><summary>How training works</summary><p class="club-note">Training changes your horse’s movement throughout the race. Your levels follow you when you change riders. Each skill has five permanent levels; higher levels cost more. Training locks when betting opens and applies to your own racer, regardless of your bet. No upgrade guarantees a win.</p></details><section class="signature-card" aria-label="Your rider power"><span class="eyebrow">SIGNATURE POWER</span><h4 id="mp-power-name"></h4><p id="mp-power-description" class="club-note"></p><p class="club-note">Automatic � once per race � included for every rider, including CPUs. Training stays your main advantage.</p><details><summary>Meet all seven powers</summary>${Object.entries(POWERS).map(([id,p]) => `<p><strong>${HORSES[id]} � ${p.name}</strong><br>${p.description}</p>`).join("")}</details></section><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bets lose. Win, Place and Show offer different returns, including the stake. Career points and wins track your own horse.</p></section><section id="mp-room-directory" class="club-box room-directory" aria-label="Other race rooms"></section></div>
+  <div class="club-tabs" role="tablist" aria-label="Racing club"><button id="mp-tab-live" class="club-tab" role="tab" aria-controls="mp-live-panel" aria-selected="true">Live room & stable</button><button id="mp-tab-upgrades" class="club-tab" role="tab" aria-controls="mp-upgrades-panel" aria-selected="false" tabindex="-1">Upgrades · 20 paths</button><button id="mp-tab-history" class="club-tab" role="tab" aria-controls="mp-history-panel" aria-selected="false" tabindex="-1">Bet slips & results <span id="mp-history-count">0</span></button></div>
+  <div id="mp-live-panel" class="club-grid" role="tabpanel" aria-labelledby="mp-tab-live"><div class="club-sidebar"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Train how your horse runs. Race-day form and luck still matter.</p><div id="mp-upgrades" class="training-grid" aria-label="Train your racer"></div><button id="mp-open-workshop" type="button" class="button quiet workshop-link">Explore horse & power upgrades →</button><details class="training-help"><summary>How training works</summary><p class="club-note">Training changes your horse’s movement throughout the race. Your levels follow you when you change riders. The original three skills have five permanent levels; the workshop adds longer specialist paths and repeatable mastery. Higher levels cost more. Training locks when betting opens and applies to your own racer, regardless of your bet. No upgrade guarantees a win.</p></details><section class="signature-card" aria-label="Your rider power"><span class="eyebrow">SIGNATURE POWER</span><h4 id="mp-power-name"></h4><p id="mp-power-description" class="club-note"></p><p class="club-note">Automatic · included for every rider, including CPUs. Reserve training can unlock a second move.</p><details><summary>Meet all seven powers</summary>${Object.entries(POWERS).map(([id,p]) => `<p><strong>${HORSES[id]} · ${p.name}</strong><br>${p.description}</p>`).join("")}</details></section><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bets lose. Win, Place and Show offer different returns, including the stake. Career points and wins track your own horse.</p></section><section id="mp-room-directory" class="club-box room-directory" aria-label="Other race rooms"></section></div>
   <section class="club-box"><h3>Race with friends</h3><div id="mp-lobby"><button id="mp-create" class="button primary">Create room</button><form id="mp-join-form" class="club-row"><label class="field">Room code<input id="mp-code" maxlength="6" minlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="ABC123" required></label><button class="button" type="submit">Join room</button></form></div>
-  <div id="mp-room" hidden><div class="club-row"><strong id="mp-room-name"></strong><button id="mp-leave" class="button quiet">Leave room</button></div><p id="mp-members" class="club-note"></p><strong id="mp-phase"></strong><p class="club-note">Seven starters; CPU racers fill empty places. The host opens each round.</p><button id="mp-start" class="button primary">Open betting · start next race</button>
+  <div id="mp-room" hidden><div class="club-row"><strong id="mp-room-name"></strong><button id="mp-leave" class="button quiet">Leave room</button></div><p id="mp-members" class="club-note"></p><details class="racer-builds"><summary>Racer training & powers</summary><div id="mp-racer-builds"></div></details><strong id="mp-phase"></strong><p class="club-note">Seven starters; CPU racers fill empty places. The host opens each round.</p><button id="mp-start" class="button primary">Open betting · start next race</button>
   <section class="current-slip"><h4>This round · your bets</h4><p class="club-note bet-types-note">Win: 1st · 4× return. Place: top 2 · 2×. Show: top 3 · 1.5×. Returns include your stake; fractional coins round down. Up to one of each type per round.</p><form id="mp-bet-form" class="club-row" hidden><label class="field">Bet type<select id="mp-bet-kind"><option value="win">Win · finish 1st</option><option value="place">Place · finish top 2</option><option value="show">Show · finish top 3</option></select></label><label class="field">Your pick<select id="mp-bet-horse"></select></label><label class="field">Stake<input id="mp-stake" type="number" min="10" max="500" step="1" value="50" required></label><button class="button primary" type="submit">Place bet</button><p id="mp-bet-preview" class="club-note"></p></form><div id="mp-bet-note" aria-live="polite"></div></section><div id="mp-finish-order" hidden><h4>Finishing order</h4><ol id="mp-results"></ol></div></div></section></div>
   <section id="mp-history-panel" class="club-history" role="tabpanel" aria-labelledby="mp-tab-history" hidden><div class="history-heading"><div><p class="eyebrow">SAVED WITH YOUR ACCOUNT</p><h3 id="mp-history-title">Bet slips & race results</h3><p class="club-note">Your bet result and your horse’s finish prize are separate. Round totals include both; upgrades are separate purchases.</p></div><div class="history-actions"><label class="field">Show<select id="mp-history-filter"><option value="all">All rounds</option><option value="won">Won bets</option><option value="lost">Lost bets</option><option value="pending">Pending bets</option><option value="none">No bet placed</option></select></label><button id="mp-refresh-slips" class="button quiet">Refresh slips</button></div></div><p id="mp-history-summary" class="club-note" role="status"></p><div id="mp-slips" class="slip-grid"></div><button id="mp-more-slips" class="button quiet" hidden>Show more rounds</button></section>
-  <details class="club-ledger"><summary>Recent coin activity & race rules</summary><p class="club-note">Up to one Win, one Place and one Show bet per race, 10–500 coins each. Win needs 1st and returns 4×; Place needs top 2 and returns 2×; Show needs top 3 and returns 1.5×. These are fixed game returns including the stake; fractional coins round down. Each ticket settles independently, including if your pick wins a Place or Show bet. All bets are final. Finish prizes: 200 / 140 / 100 / 75 / 50 / 35 / 25 coins. Points: 12 / 9 / 7 / 5 / 3 / 2 / 1. Prizes are awarded when the round ends, even if you disconnect. Accounts stay on this server; use the same site to return.</p><button id="mp-history" class="button quiet">Refresh activity</button><ul id="mp-ledger"></ul></details></div>`;
+  <section id="mp-upgrades-panel" class="club-history" role="tabpanel" aria-labelledby="mp-tab-upgrades" hidden><div id="mp-workshop"></div></section><details class="club-ledger"><summary>Recent coin activity & race rules</summary><p class="club-note">Up to one Win, one Place and one Show bet per race, 10–500 coins each. Win needs 1st and returns 4×; Place needs top 2 and returns 2×; Show needs top 3 and returns 1.5×. These are fixed game returns including the stake; fractional coins round down. Each ticket settles independently, including if your pick wins a Place or Show bet. All bets are final. Base finish prizes: 200 / 140 / 100 / 75 / 50 / 35 / 25 coins. Club purse training increases your own finish prize; bonuses round down to whole coins. Points: 12 / 9 / 7 / 5 / 3 / 2 / 1. Prizes are awarded when the round ends, even if you disconnect. Accounts stay on this server; use the same site to return.</p><button id="mp-history" class="button quiet">Refresh activity</button><ul id="mp-ledger"></ul></details></div>`;
     this.roomBrowser = new RoomBrowser($("mp-room-directory"), {
       refresh: () => void this.action(() => this.refreshRooms()),
       join: (code, horse) => void this.action(async () => {
@@ -77,27 +79,26 @@ export class MultiplayerUI {
     });
     options($("mp-horse"));
     options($("mp-bet-horse"));
-    const selectTab = (history) => {
-      $("mp-live-panel").hidden = history;
-      $("mp-history-panel").hidden = !history;
-      for (const [id, selected] of [["mp-tab-live", !history], ["mp-tab-history", history]]) {
-        $(id).setAttribute("aria-selected", String(selected));
-        $(id).tabIndex = selected ? 0 : -1;
+    const selectTab = (tab) => {
+      const name=typeof tab==='string'?tab:tab?'history':'live';
+      for(const id of ['live','upgrades','history']){
+        $("mp-"+id+"-panel").hidden=id!==name;
+        $("mp-tab-"+id).setAttribute('aria-selected',String(id===name));
+        $("mp-tab-"+id).tabIndex=id===name?0:-1;
       }
     };
+    this.workshop=new WorkshopUI($("mp-workshop"),{buy:(kind,level)=>void this.action(()=>this.api('/api/upgrades',{kind,level}))});
+    $("mp-open-workshop").onclick=()=>selectTab('upgrades');
     this.raceBanner = new RaceBettingBanner($("race-betting-banner"), () => {
-      selectTab(false);
-      $("mp-bet-form").scrollIntoView({ behavior: "smooth", block: "center" });
-      $("mp-bet-kind").focus({ preventScroll: true });
+      selectTab('live');$("mp-bet-form").scrollIntoView({behavior:'smooth',block:'center'});$("mp-bet-kind").focus({preventScroll:true});
     });
-    for (const id of ["mp-tab-live", "mp-tab-history"]) {
-      $(id).onclick = () => selectTab(id === "mp-tab-history");
-      $(id).onkeydown = (event) => {
-        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-        event.preventDefault();
-        const history = event.key === "End" || (event.key !== "Home" && id === "mp-tab-live");
-        selectTab(history);
-        $(history ? "mp-tab-history" : "mp-tab-live").focus();
+    const tabs=['live','upgrades','history'];
+    for(const id of tabs){
+      $("mp-tab-"+id).onclick=()=>selectTab(id);
+      $("mp-tab-"+id).onkeydown=event=>{
+        if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();
+        const at=tabs.indexOf(id),next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(at+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+        selectTab(tabs[next]);$("mp-tab-"+tabs[next]).focus();
       };
     }
     const preview = () => {
@@ -361,6 +362,7 @@ export class MultiplayerUI {
       currentCode: this.room?.code, horse: u.horse, locked,
       busy: this.busy, online: this.online,
     });
+    this.workshop.render({user:u,locked,busy:this.busy,online:this.online});
     $("mp-name").textContent = u.username;
     $("mp-wallet").textContent =
       `${u.coins.toLocaleString()} coins · ${u.points} points`;
@@ -423,6 +425,16 @@ export class MultiplayerUI {
           `${m.username}${m.id === this.room.hostId ? " (host)" : ""} — ${HORSES[m.horse]}`,
       )
       .join(" · ");
+    const buildRows=this.room.race?.entrants??this.room.members;
+    const buildSignature=JSON.stringify(buildRows);
+    if(buildSignature!==this.buildSignature){
+      this.buildSignature=buildSignature;
+      $("mp-racer-builds").replaceChildren(...buildRows.map(e=>{
+        const row=document.createElement('p'),levels=e.upgrades??{},paths=Object.entries(levels).filter(([,n])=>n>0);
+        row.textContent=`${e.username} · ${HORSES[e.horse]} · Speed ${e.speed}/5 / Stamina ${e.stamina}/5 / Focus ${e.focus}/5 · ${paths.length?paths.map(([kind,n])=>`${UPGRADES[kind]?.name??kind} ${n}`).join(', '):'No workshop training'}${levels.powerReserve>=5?' · two automatic powers':''}`;
+        return row;
+      }));
+    }
     const seconds = Math.max(
       0,
       Math.ceil(((r?.closes ?? 0) - Date.now() - this.offset) / 1000),

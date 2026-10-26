@@ -1,10 +1,11 @@
 import { ACTOR_IDS, validateRace } from "../race-core.js";
 import { makeCircuit, trackPoint } from "../track.js";
 import { POWERS } from "../powers.js";
+import {normalizeUpgrades,masteryPace} from '../progression.js';
 
 // A versioned, server-owned simulation. All clients receive the same persisted
 // distance timeline; finish order is measured from its crossings, never drawn.
-export const SIMULATION_VERSION = "skills-v5-heavy-hits";
+export const SIMULATION_VERSION = "skills-v6-workshop";
 const STEP = 0.125;
 const WINDOW = 68;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -58,6 +59,7 @@ function simplify(points, tolerance = 0.04) {
 
 function makeHorse(seed, entrant, lane, track) {
   const skills = skillsOf(entrant);
+  const upgrades=normalizeUpgrades(entrant.upgrades??{}),level=kind=>upgrades[kind]??0;
   // Separate streams by horse, not cast position or training level. Identical
   // seeds support fair before/after comparisons without rerolling good fortune.
   const random = randomSource(`${typeof seed}:${seed}:${entrant.horse}`);
@@ -69,35 +71,39 @@ function makeHorse(seed, entrant, lane, track) {
   for (const section of [0.23, 0.52, 0.76]) {
     const chance = random(), at = section + (random() - 0.5) * 0.06;
     const duration = 0.4 + random() * 0.4;
-    if (chance < 0.34 * (1 - skills.focus * 0.14))
-      incidents.push({ fraction: at, duration: duration * (1 - skills.focus * 0.08) });
+    if (chance < 0.34 * (1 - skills.focus * 0.14)*(1-level('balance')*.04))
+      incidents.push({ fraction: at, duration: duration * (1 - skills.focus * 0.08)*(1-level('balance')*.03) });
   }
-  const reaction = 0.14 + reactionRoll * 0.7 * (1 - skills.focus * 0.11);
-  const cruise = track.length / 48 * form * (1 + skills.speed * 0.03);
-  const acceleration = track.length / 82 * (1 + skills.speed * 0.1);
+  const reaction = (0.14 + reactionRoll * 0.7 * (1 - skills.focus * 0.11))*(1-level('gatecraft')*.025);
+  const cruise = track.length / 48 * form * (1 + skills.speed * 0.03)*(1+level('horseshoes')*.002+masteryPace(level('mastery')));
+  const acceleration = track.length / 82 * (1 + skills.speed * 0.1)*(1+level('stride')*.04);
   const points = [{ time: 0, distance: 0, boundary: true },
     { time: reaction, distance: 0, boundary: true }];
   const powerRandom = randomSource(`${typeof seed}:${seed}:${entrant.horse}:power`);
-  return { id: entrant.horse, lane, skills, points, incidents, reaction, cruise, acceleration,
-    pace, corners, distance: 0, speed: 0, powerAt: .28 + powerRandom() * .38, used: false, effects: [] };
+  return { id: entrant.horse, lane, skills, upgrades, points, incidents, reaction, cruise, acceleration,
+    pace, corners, distance: 0, speed: 0, powerAt: .28 + powerRandom() * .38-level('powerReach')*.003,
+    reserveAt:.82+powerRandom()*.08,uses:0,charges:level('powerReserve')>=5?2:1,effects: [] };
 }
 
 function runField(seed, entrants, lanes, track, powers) {
   const horses = entrants.map((e, i) => makeHorse(seed, e, lanes[i], track));
   const events = [];
   for (let time = 0; time < 120 && horses.some(h => !h.finish); time += STEP) {
+    const frameDistances=new Map(horses.map(h=>[h.id,h.distance]));
     for (const horse of horses) {
       if (horse.finish) continue;
       // Preserve the original per-horse reaction clock and luck stream.
       let {skills, incidents, cruise, acceleration, pace, corners, speed, distance} = horse;
+      const level=kind=>horse.upgrades[kind]??0;
       const elapsed = time - horse.reaction;
       if (elapsed < 0) continue;
       const localTime = Math.floor(elapsed / STEP) * STEP + horse.reaction;
       const fraction = distance / track.length;
       const turn = trackPoint(track, distance).turn;
-      const fatigue = Math.pow(clamp((fraction - 0.42) / 0.58, 0, 1), 1.25) *
-        (0.14 - skills.stamina * 0.02);
-      const turnLoss = turn ? corners[turn - 1] * (1 - skills.focus * 0.13) : 0;
+      const fatigueStart=.42+level('secondWind')*.007;
+      const fatigue = Math.pow(clamp((fraction - fatigueStart) / (.58-level('secondWind')*.007), 0, 1), 1.25) *
+        (0.14 - skills.stamina * 0.02)*(1-level('conditioning')*.02);
+      let turnLoss = turn ? corners[turn - 1] * (1 - skills.focus * 0.13)*(1-level('cornering')*.04)*(1-level('horseshoes')*.01) : 0;
       let rhythmLoss = false, boundary = false;
       for (const incident of incidents) {
         if (incident.start === undefined && fraction >= incident.fraction) {
@@ -107,22 +113,28 @@ function runField(seed, entrants, lanes, track, powers) {
         if (incident.start !== undefined && localTime < incident.end) rhythmLoss = true;
       }
       const active = horse.effects.filter(e => localTime >= e.start && localTime < e.end);
-      const boost = Math.min(.28, active.reduce((n,e) => n + e.boost, 0));
+      const boost = Math.min(.28+level('powerPotency')*.01, active.reduce((n,e) => n + e.boost, 0));
+      const ownBoost=active.some(e=>e.own);
+      if(ownBoost)turnLoss*=1-level('powerDiscipline')*.03;
+      if(horse.effects.some(e=>e.slow&&localTime>=e.start&&localTime<e.end+1.5))acceleration*=1+level('recovery')*.04;
       // A comic hit is a real loss of velocity, not only a lower future target.
       // Nearby heavy hits share a jolt cooldown and their slowdowns never add.
       for(const effect of active.filter(e=>e.shock&&!e.applied)){
         effect.applied=true;
         if(localTime >= (horse.nextJolt ?? 0)){
           speed *= 1-effect.shock;
-          horse.nextJolt=localTime+2.4;
+          horse.nextJolt=localTime+2.4+level('recovery')*.12;
           boundary=true;
         }
       }
       const light = Math.min(.24, active.filter(e=>!e.shock).reduce((n,e) => n+(e.slow??0),0));
       const heavy = Math.max(0,...active.filter(e=>e.shock).map(e=>e.slow));
       const slow = Math.min(.60,Math.max(light,heavy));
+      const drafting=level('drafting')&&horses.some(other=>other!==horse&&!other.finish&&Math.abs(other.lane-horse.lane)<=1&&frameDistances.get(other.id)-frameDistances.get(horse.id)>1&&frameDistances.get(other.id)-frameDistances.get(horse.id)<10);
+      const rhythm= rhythmLoss?1-.28*(ownBoost?1-level('powerDiscipline')*.08:1):1;
+      const kick=1+level('finishing')*.006*clamp((fraction-.72)/.20,0,1);
       const target = cruise * (1 + interpolate(pace, fraction)) *
-        (1 - fatigue) * (1 - turnLoss) * (rhythmLoss ? 0.72 : 1) * (1 + boost) * (1 - slow);
+        (1 - fatigue) * (1 - turnLoss) * rhythm * (1 + boost) * (1 - slow)*kick*(drafting?1+level('drafting')*.004:1)*(ownBoost?1+level('powerDiscipline')*.004:1);
       const nextSpeed = speed < target ? Math.min(target, speed + acceleration * STEP)
         : Math.max(target, speed - acceleration * 1.4 * STEP);
       const nextDistance = distance + (speed + nextSpeed) / 2 * STEP;
@@ -145,10 +157,15 @@ function runField(seed, entrants, lanes, track, powers) {
       return b.time<=time ? b.distance : a.distance+(b.distance-a.distance)*(time-a.time)/(b.time-a.time);
     };
     const finished = horse => horse.finish !== undefined && horse.finish<=time;
-    const firing = powers ? horses.filter(h => !h.used && !finished(h) &&
+    const firing = powers ? horses.filter(h => h.uses<h.charges && !finished(h) &&
       sharedDistance(h) >= track.length * h.powerAt).sort((a,b) => a.id.localeCompare(b.id)) : [];
     for (const h of firing) {
-      const p = POWERS[h.id];
+      const base=POWERS[h.id],level=kind=>h.upgrades[kind]??0;
+      const strength=(1+level('powerPotency')*.02)*(h.uses ? .65 : 1),duration=1+level('powerDuration')*.025;
+      const p={...base,boost:base.boost*strength,slow:(base.slow??0)*strength,
+        shock:Math.min(.68,(base.shock??0)*strength),assist:(base.assist??0)*strength,
+        duration:base.duration*duration*(1+level('powerReserve')*.04),hitDuration:(base.hitDuration??0)*duration,
+        radius:(base.radius??0)+level('powerReach')};
       const location = runner => trackPoint(track, sharedDistance(runner),
         (runner.lane - (horses.length - 1) / 2) * track.laneWidth);
       const origin = location(h);
@@ -173,19 +190,23 @@ function runField(seed, entrants, lanes, track, powers) {
           .sort((a,b) => a.distance-b.distance || a.horse.id.localeCompare(b.horse.id))
           .slice(0, p.targets ?? 0).map(other => other.horse);
       }
-      const hitTime = time + .45;
-      h.used = true;
-      h.effects.push({start: time, end: time + p.duration, boost: p.boost});
-      for (const target of targets) target.effects.push({start: hitTime, end: hitTime + p.hitDuration,
-        boost: p.assist ?? 0, slow: (p.slow ?? 0) * (1 - target.skills.focus * .06),
-        shock: (p.shock ?? 0) * (1 - target.skills.focus * .06)});
+      const hitTime = time + .45*(1-level('powerReach')*.03);
+      h.uses++;h.powerAt=h.reserveAt;
+      h.effects.push({start: time, end: time + p.duration, boost: p.boost,own:true});
+      const targetEnds={};
+      for (const target of targets){
+        const end=hitTime+p.hitDuration*(p.assist?1:1-(target.upgrades.recovery??0)*.025);targetEnds[target.id]=end;
+        target.effects.push({start: hitTime, end,
+          boost: p.assist ?? 0, slow: (p.slow ?? 0) * (1 - target.skills.focus * .06)*(1-(target.upgrades.blinkers??0)*.025)*(p.shock?1-(target.upgrades.saddle??0)*.025:1),
+          shock: (p.shock ?? 0) * (1 - target.skills.focus * .06)*(1-(target.upgrades.saddle??0)*.025)});
+      }
       const detail = targets.length ? (p.targeting === 'leader' ? 'Leader targeted: ' : p.assist ? 'Shared horsepower for ' : 'Caught: ') +
         targets.map(t=>t.id).join(', ') + '.' : p.targeting === 'leader' ?
         'No rival leader to hit. Keeping the speed boost!' : p.slow ? 'The pack escapes the distraction.' : 'A burst of horsepower!';
-      events.push({id: `power-${h.id}`, type: 'caption', power: p.effect, actor: h.id,
+      events.push({id: `power-${h.id}${h.uses>1?'-'+h.uses:''}`, type: 'caption', power: p.effect, actor: h.id,charge:h.uses,charges:h.charges,
         time, duration: p.duration, hitTime, hitDuration: p.hitDuration ?? 0,
         targets: targets.map(other => other.id), assist: Boolean(p.assist),
-        targeting: p.targeting ?? (p.assist ? 'last' : p.slow ? 'nearby' : 'self'), impact: p.shock ?? 0, detail,
+        targeting: p.targeting ?? (p.assist ? 'last' : p.slow ? 'nearby' : 'self'), impact: p.shock ?? 0, targetEnds, detail,
         text: `${p.name}${/[!?]$/.test(p.name) ? '' : '!'} ${detail}`});
     }
     if (firing.length) for(const horse of horses) {
@@ -228,7 +249,7 @@ export function simulateRace(seed, { entrants, duration = 64, title = "Club race
   const cast = horses.map((h) => {
     const finish = startDelay + h.finish * scale;
     return {
-      id: h.id, lane: h.lane, skills: h.skills,
+      id: h.id, lane: h.lane, skills: h.skills,upgrades:h.upgrades,
       moments: h.incidents.filter((e) => e.start !== undefined).map((e) => ({
         kind: "rhythm", time: startDelay + e.start * scale,
         end: Math.min(finish, startDelay + e.end * scale),
@@ -241,9 +262,11 @@ export function simulateRace(seed, { entrants, duration = 64, title = "Club race
     };
   });
   const outcome = [...horses].sort((a, b) => a.finish - b.finish).map((h) => h.id);
-  const raceEvents = events.map(e => ({...e, time: startDelay + e.time * scale,
-    duration: Math.min(e.duration * scale, end - startDelay - e.time * scale),
-    hitTime: startDelay + e.hitTime * scale, hitDuration: e.hitDuration * scale}));
+  const raceEvents = events.map(e => {
+    const time=startDelay+e.time*scale,hitTime=startDelay+e.hitTime*scale;
+    return {...e,time,duration:Math.min(e.duration*scale,end-time),hitTime,hitDuration:Math.min(e.hitDuration*scale,end-hitTime),
+      targetEnds:Object.fromEntries(Object.entries(e.targetEnds).map(([id,t])=>[id,Math.min(end,startDelay+t*scale)]))};
+  });
   return validateRace({ version: 1, id: `skills-${String(seed).slice(0, 75)}`,
     title, seed, duration: end, startDelay, track, cast, outcome, events: raceEvents,
     simulation: { model: SIMULATION_VERSION, powers, step: STEP, nominalSpeed: track.length / ((duration - startDelay) * 0.8) } });

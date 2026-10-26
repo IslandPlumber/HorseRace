@@ -120,7 +120,7 @@ export function createServer(
             result = game.me(id);
             break;
           case "POST /api/upgrades":
-            game.upgrade(id, body.kind);
+            game.upgrade(id, body.kind, body.level);
             result = game.me(id);
             break;
           case "GET /api/ledger":

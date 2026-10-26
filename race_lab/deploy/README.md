@@ -86,6 +86,15 @@ in or changing server progress. By default it targets a local server on port
 8770. Instanced scenery must call `InstancedMesh.dispose()` as well as disposing
 geometry/materials, otherwise per-instance GPU buffers accumulate between races.
 
+## Workshop upgrades
+
+The Upgrades tab uses the additive `player_upgrades` table. Original user columns,
+training levels/prices and ticket tables are preserved. Include `progression.js`
+with every server release. Builds freeze at betting open; purchased specialist
+levels and both power casts persist in the saved race. Read `../PROGRESSION.md`
+for effects, economy and rollback compatibility. Do not downgrade an active
+upgraded round to an engine that ignores workshop levels.
+
 ## Save data and recovery
 
 Club races now simulate the frozen entry skills through actual movement:

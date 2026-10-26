@@ -29,7 +29,7 @@ export function activePowerEffects(race, id, time) {
     const effects = [];
     if (event.actor === id && time >= event.time && time < event.time + event.duration)
       effects.push({event, kind: 'boost'});
-    if (event.targets.includes(id) && time >= event.hitTime && time < event.hitTime + event.hitDuration)
+    if (event.targets.includes(id) && time >= event.hitTime && time < (event.targetEnds?.[id]??event.hitTime + event.hitDuration))
       effects.push({event, kind: event.assist ? 'assist' : 'slow'});
     return effects;
   });
@@ -45,7 +45,8 @@ export function powerStatus(race, id, time, finished=false) {
   if (own) return `${POWERS[id].name} · active`;
   const hit = active.find(e => e.kind !== 'boost');
   if (hit) return hit.kind === 'assist' ? 'Mitten boost!' : `${POWERS[hit.event.actor].name} · slowed`;
-  return `${POWERS[id].name} · ${powerEvents(race).some(e => e.actor === id && time >= e.time) ? 'used' : 'ready'}`;
+  const moves=powerEvents(race).filter(e=>e.actor===id),used=moves.filter(e=>time>=e.time).length;
+  return `${POWERS[id].name} · ${used&&used<moves.length?'reserve ready':used?'used':'ready'}`;
 }
 
 /** Pure replay-time reaction; seeking never leaves a horse tilted or airborne. */
