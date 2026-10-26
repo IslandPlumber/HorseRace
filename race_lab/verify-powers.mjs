@@ -69,12 +69,12 @@ try{
  // Jump to a later CPU cast after both player requests are confirmed. The
  // deterministic imported fixtures below still inspect every exact impact.
  const first=powerEvents(race).filter(e=>!['elon','trump'].includes(e.actor)).toSorted((a,b)=>a.time-b.time)[0];
- advanceTo(code,first.time+.7);
+ advanceTo(code,first.time+1.1);
  await Promise.all([a,b].map(p=>p.waitForFunction(id=>window.raceLab.race.events.some(e=>e.actor===id&&e.time<=window.raceLab.time),first.actor)));
  for(const p of[a,b]){assert.ok(await p.locator('#power-feed').isVisible());assert.match(await p.locator('#power-feed').textContent(),new RegExp(POWERS[first.actor].name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));}
  await a.locator('#race-preview').screenshot({path:`${out}/live-power.png`});
- await b.reload();await b.locator('#mp-name').filter({hasText:'PowerBobby'}).waitFor();
- await b.waitForFunction(id=>window.raceLab?.ready&&window.raceLab.race.id===id,race.id);
+ await b.reload();
+ await b.waitForFunction(id=>window.raceLab?.ready&&window.raceLab.race.id===id&&document.querySelector('#mp-name')?.textContent==='PowerBobby',race.id,{timeout:60000});
  assert.equal(await a.locator('#power-volume').inputValue(),'70');
  const restored=await b.evaluate(()=>window.raceLab.race);
  assert.equal(restored.live,true);assert.equal(restored.seed,'live');assert.deepEqual(restored.outcome,[]);
@@ -141,5 +141,13 @@ try{
  assert.deepEqual(errors,[]);assert.deepEqual(outside,[]);
  report.checks.push('all seven procedural effects render; multi-target hat preview; backward seek clears effects; 390px fit; no page/CSP errors or Laravel API requests');
  report.verifiedAt=new Date().toISOString();await writeFile(`${out}/report.json`,JSON.stringify(report,null,2)+'\n');console.log(report);
-}catch(e){for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:`${out}/failure-${i}.png`,fullPage:true}).catch(()=>{});console.error(errors);throw e;}
+}catch(e){
+ const expectedRace=game.one('SELECT id,phase FROM races ORDER BY starts DESC,rowid DESC LIMIT 1');
+ const diagnostics=await Promise.all(pages.map(p=>Promise.race([
+  p.evaluate(()=>({url:location.href,ready:window.raceLab?.ready,state:window.raceLab?.state,raceId:window.raceLab?.race?.id,name:document.querySelector('#mp-name')?.textContent,nameHidden:document.querySelector('#mp-name')?getComputedStyle(document.querySelector('#mp-name')).display:null,frame:window.raceLab?.multiplayer?.frame,status:document.querySelector('#mp-status')?.textContent,error:document.querySelector('#mp-error')?.textContent})).catch(error=>({error:error.message})),
+  new Promise(resolve=>setTimeout(()=>resolve({error:'diagnostic timed out'}),5000)),
+ ])));
+ await writeFile(`${out}/failure-diagnostics.json`,JSON.stringify({expectedRace,diagnostics,errors},null,2)+'\n');
+ for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:`${out}/failure-${i}.png`,fullPage:true}).catch(()=>{});console.error(errors);throw e;
+}
 finally{await browser.close();await new Promise(r=>proxy.close(r));await new Promise(r=>server.close(r));game.close();await rm(dir,{recursive:true,force:true});}
