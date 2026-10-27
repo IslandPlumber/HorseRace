@@ -21,8 +21,8 @@ async function api(p,route,body){return p.evaluate(async({route,body})=>{const r
 function advance(seconds){now+=seconds*1000;game.tick();}
 try{
  const a=await page(1280,'SpecialAlice'),b=await page(390,'SpecialBobby');
- await a.locator('#mp-create').click();await a.locator('#mp-room-name').waitFor();const code=(await a.locator('#mp-room-name').textContent()).split(' ')[1];
- await b.locator('#mp-code').fill(code);await b.getByRole('button',{name:'Join room',exact:true}).click();await b.locator('#mp-members').filter({hasText:'SpecialAlice'}).waitFor();await a.locator('#mp-start').click();
+ const previousRoom=await a.locator('#mp-room-name').textContent();await a.locator('#mp-create').click();await a.waitForFunction(previous=>document.querySelector('#mp-room-name').textContent!==previous,previousRoom);const code=(await a.locator('#mp-room-name').textContent()).split(' ')[1];
+ await b.locator('#mp-code').fill(code);await b.getByRole('button',{name:'Join room',exact:true}).click();await b.locator('#mp-room-name').filter({hasText:code}).waitFor();await a.locator('#mp-members').filter({hasText:'SpecialBobby'}).waitFor();await a.locator('#mp-start').click();
  await a.locator('#race-use-power').filter({hasText:'75 coins'}).waitFor();await b.locator('#race-use-power').filter({hasText:'50 coins'}).waitFor();
  assert.ok(await a.locator('#race-use-power').isDisabled());advance(13);
  await Promise.all([a,b].map(p=>p.waitForFunction(()=>window.raceLab.race.simulation?.specials&&document.querySelector('#race-use-power').disabled===false)));
