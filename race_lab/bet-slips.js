@@ -84,10 +84,10 @@ export function betSlip(round) {
 export function historyList(container, rounds, { filter = "all", visible = 6 } = {}) {
   const filtered = rounds.filter((r) => {
     const bets = roundBets(r);
-    return filter === "all" || (filter === "none" ? !bets.length : bets.some((b) =>
+    return bets.length>0 && (filter === "all" || bets.some((b) =>
       (b.status ?? (b.payout === null ? "pending" : b.payout > 0 ? "won" : "lost")) === filter));
   });
   container.replaceChildren(...filtered.slice(0, visible).map(betSlip));
-  if (!filtered.length) container.append(el("p", "history-empty", rounds.length ? "No rounds match this filter." : "Your saved bet slips and race prizes will appear here after you join a round."));
+  if (!filtered.length) container.append(el("p", "history-empty", rounds.length ? "No bets match this filter." : "No bets yet. Place a bet to save your first slip."));
   return filtered.length;
 }

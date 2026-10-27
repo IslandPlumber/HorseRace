@@ -69,7 +69,10 @@ and hidden during managed club races.
 Saved slips are derived from race snapshots, tickets and coin ledger rows.
 Win/Place/Show adds a `race_bets` table without altering or rebuilding existing
 tables; old Win bets stay in `bets` and retain their 4× terms. The authenticated `/api/history` endpoint
-returns only that player's latest 50 rounds, including rounds without a bet.
+returns only that player's latest 50 rounds. The Past bets view requests
+`?betsOnly=1`, filtering legacy and typed tickets before the 50-round limit, so
+no-bet races do not appear or crowd out older slips. Coin activity and saved
+race records remain intact.
 Bet returns include the stake; bet profit is return minus stake; round coin
 change is minus stake plus bet return plus the player's finish prize. Upgrades
 are separate purchases, and career points/wins describe the player's own horse.

@@ -691,16 +691,17 @@ export class Game {
       rules: RULES,
     };
   }
-  history(id) {
+  history(id, {betsOnly=false}={}) {
     // Existing race snapshots and ledger entries are the durable source of truth.
-    // Include the current round even before an optional bet has been placed.
+    // Filter tickets before LIMIT so recent no-bet races cannot hide older bets.
     return this.all(
       `SELECT r.id,r.code,r.number,r.phase,r.starts,r.ends,r.entrants,r.results,
         CASE WHEN r.phase<>'results' AND EXISTS(SELECT 1 FROM live_races lr WHERE lr.race_id=r.id) THEN r.definition END AS live_definition,
         (SELECT COALESCE(SUM(l.delta),0) FROM ledger l WHERE l.user_id=? AND l.race_id=r.id) AS net_coins
        FROM races r
-       WHERE r.id IN (SELECT race_id FROM ledger WHERE user_id=? AND race_id IS NOT NULL)
-          OR r.id=(SELECT id FROM races WHERE code=(SELECT code FROM members WHERE user_id=?) ORDER BY closes DESC LIMIT 1)
+       WHERE ${betsOnly
+         ? 'EXISTS(SELECT 1 FROM race_bets b WHERE b.race_id=r.id AND b.user_id=?) OR EXISTS(SELECT 1 FROM bets b WHERE b.race_id=r.id AND b.user_id=?)'
+         : 'r.id IN (SELECT race_id FROM ledger WHERE user_id=? AND race_id IS NOT NULL) OR r.id=(SELECT id FROM races WHERE code=(SELECT code FROM members WHERE user_id=?) ORDER BY closes DESC LIMIT 1)'}
        ORDER BY r.closes DESC,r.rowid DESC LIMIT 50`,
       id, id, id,
     ).flatMap((r) => {

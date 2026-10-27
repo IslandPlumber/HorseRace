@@ -66,3 +66,15 @@ test('legacy Win tickets remain unchanged and can coexist with new Place and Sho
  const balance=g.profile(a.id).coins;g.settle(r,{outcome:order});assert.equal(g.profile(a.id).coins,balance);
  assert.deepEqual(g.one('SELECT * FROM bets WHERE id=?','legacy-win'),legacy);
 });
+
+test('Past bets excludes no-ticket races before the limit, retaining legacy, typed and spectator tickets',async t=>{
+ const {g,a,code,advance}=fixture(t),first=g.latest(code).id;
+ g.bet(a.id,code,'elon',10,'place');g.settle(g.latest(code),{outcome:ACTOR_IDS});advance(1);
+ const legacy=g.start(a.id,code);g.credit(a.id,-10,'Legacy Win bet',legacy);g.run('INSERT INTO bets VALUES(?,?,?,?,?,NULL)','legacy-history-ticket',a.id,legacy,'trump',10);g.settle(g.latest(code),{outcome:ACTOR_IDS});advance(1);
+ for(let i=0;i<55;i++){g.start(a.id,code);g.settle(g.latest(code),{outcome:ACTOR_IDS});advance(1);}
+ assert.equal(g.history(a.id).length,50);assert.ok(g.history(a.id).every(r=>!r.bets.length));
+ const only=g.history(a.id,{betsOnly:true});assert.deepEqual(only.map(r=>r.id),[legacy,first]);assert.deepEqual(only.map(r=>r.bets[0].kind),['win','place']);
+ const other=g.register('OtherBettor','test-password-123'),otherRoom=g.create(other.user.id);g.start(other.user.id,otherRoom);g.bet(other.user.id,otherRoom,'trump',10,'show');g.join(a.id,otherRoom,'snoop');g.bet(a.id,otherRoom,'elon',10,'show');
+ const current=g.history(a.id,{betsOnly:true});assert.equal(current.length,3);assert.equal(current[0].ownHorse,null);assert.equal(current[0].bets[0].status,'pending');assert.ok(current.every(r=>r.bets.length));assert.equal(g.history(other.user.id,{betsOnly:true}).length,1);
+ const {createServer}=await import('./http.js');const server=createServer(g);await new Promise(r=>server.listen(0,'127.0.0.1',r));try{const session=g.login('Alice','test-password-123'),url='http://127.0.0.1:'+server.address().port+'/api/history?betsOnly=1';assert.equal((await fetch(url)).status,401);const response=await fetch(url,{headers:{Authorization:'Bearer '+session.token}});assert.equal(response.status,200);assert.deepEqual((await response.json()).history,current);}finally{await new Promise(r=>server.close(r));}
+});

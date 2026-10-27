@@ -128,7 +128,7 @@ export function createServer(
             result = { entries: game.ledger(id) };
             break;
           case "GET /api/history":
-            result = { history: game.history(id) };
+            result = { history: game.history(id,{betsOnly:url.searchParams.get("betsOnly")==="1"}) };
             break;
           case "GET /api/rooms":
             result = { rooms: game.rooms(), online: game.onlineCount() };

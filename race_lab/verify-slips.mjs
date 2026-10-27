@@ -20,7 +20,7 @@ game.start(user.user.id,code);game.bet(user.user.id,code,'trump',50);now+=11001;
 game.settle(game.latest(code),{outcome:['trump','biden','mcconnell','bernie','elon','gordon','snoop']});
 game.start(user.user.id,code);game.bet(user.user.id,code,'elon',50);now+=11001;
 game.settle(game.latest(code),{outcome:['trump','elon','snoop','gordon','biden','mcconnell','bernie']});
-game.leave(user.user.id);
+game.start(user.user.id,code); // This current race has no ticket and must stay out of Past bets.
 const server=createServer(game,{site:path.resolve('site')});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const proxy=http.createServer((req,res)=>{
@@ -68,7 +68,8 @@ try{
     await p.selectOption('#mp-history-filter','won');assert.equal(await p.locator('#mp-slips .bet-slip').count(),1);
     assert.equal(await p.locator('#mp-slips .bet-won').count(),1);
     await p.selectOption('#mp-history-filter','lost');assert.equal(await p.locator('#mp-slips .bet-lost').count(),1);
-    await p.selectOption('#mp-history-filter','none');assert.match(await p.locator('#mp-slips').textContent(),/No rounds match/);
+    assert.equal(await p.locator('#mp-history-filter option[value=none]').count(),0);
+    await p.selectOption('#mp-history-filter','pending');assert.match(await p.locator('#mp-slips').textContent(),/No bets match/);
     await p.selectOption('#mp-history-filter','all');
     assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await p.reload();
@@ -76,12 +77,12 @@ try{
     await p.locator('#mp-tab-history').click();
     await p.waitForFunction(()=>document.querySelectorAll('#mp-slips .bet-slip').length===2);
     await p.locator('#mp-tab-live').click();
-    await p.getByRole('button',{name:'Create room',exact:true}).waitFor();
+    await p.locator('#mp-create').waitFor();
     await context.close();
   }
   assert.deepEqual(errors,[]);
   assert.deepEqual(blocked,[]);
-  await writeFile(`${out}/report.json`,JSON.stringify({verifiedAt:new Date().toISOString(),checks:['all seven racer texture maps decoded','no texture or CSP console errors','exact 1200 to 1290 accounting fixture','desktop and mobile history slips','won/lost/no-bet filters','history survives reload and leaving rooms','no horizontal overflow'],diagnostics},null,2)+'\n');
+  await writeFile(`${out}/report.json`,JSON.stringify({verifiedAt:new Date().toISOString(),checks:['all seven racer texture maps decoded','no texture or CSP console errors','exact 1200 to 1290 accounting fixture','desktop and mobile history slips','won/lost/pending filters; no-ticket race excluded','history survives reload and leaving rooms','no horizontal overflow'],diagnostics},null,2)+'\n');
   console.log('Bet slips, saved history and actual texture decoding passed at 1280px and 390px.');
 }finally{
   await browser.close();
