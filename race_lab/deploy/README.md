@@ -74,6 +74,23 @@ Bet returns include the stake; bet profit is return minus stake; round coin
 change is minus stake plus bet return plus the player's finish prize. Upgrades
 are separate purchases, and career points/wins describe the player's own horse.
 
+On each authenticated browser connection, POST /api/arrival seats an unassigned
+player automatically. One durable main-room code lives in the additive club_rooms
+table; the first arrival adopts an already occupied public room when available.
+Preferred riders are retained if free, otherwise an available rider is assigned.
+A seven-seat main room overflows into another populated room or a new room.
+Occupied rooms take priority over an empty main room. Existing custom-room choices
+and active entries survive reconnects. POST /api/rooms/main explicitly returns to
+main when space permits. Leaving is respected until the next browser connection.
+A full main room can reclaim memberships idle for over two minutes, after the same
+startup grace; active entrants are never removed. Profiles and saved records stay
+intact. Include club_rooms in backups; no prior table is rebuilt.
+
+The compact logo is generated from the existing Trump, Elon and Snoop models by
+node render-brand.mjs and saved as assets/branding/horserace.svg. It introduces no
+external artwork or runtime rendering loop. The static server serves SVG as
+image/svg+xml with the existing image policy.
+
 Room discovery remains visible while already in a room. Active clients refresh
 the directory every five seconds and report presence through authenticated game
 requests; presence expires after 30 seconds without contact. Switching with a

@@ -52,6 +52,7 @@ export class Game {
    CREATE TABLE IF NOT EXISTS player_upgrades(user_id TEXT NOT NULL REFERENCES users(id),kind TEXT NOT NULL,level INTEGER NOT NULL CHECK(typeof(level)='integer' AND level>=0),PRIMARY KEY(user_id,kind));
    CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS rooms(code TEXT PRIMARY KEY, host_id TEXT NOT NULL REFERENCES users(id), created INTEGER NOT NULL);
+   CREATE TABLE IF NOT EXISTS club_rooms(kind TEXT PRIMARY KEY CHECK(kind='main'),code TEXT UNIQUE NOT NULL REFERENCES rooms(code));
    CREATE TABLE IF NOT EXISTS members(user_id TEXT PRIMARY KEY REFERENCES users(id), code TEXT NOT NULL REFERENCES rooms(code));
    CREATE TABLE IF NOT EXISTS races(id TEXT PRIMARY KEY, code TEXT NOT NULL REFERENCES rooms(code), number INTEGER NOT NULL, phase TEXT NOT NULL, closes INTEGER NOT NULL, starts INTEGER NOT NULL, ends INTEGER NOT NULL, entrants TEXT NOT NULL, definition TEXT, results TEXT);
    CREATE TABLE IF NOT EXISTS bets(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), race_id TEXT NOT NULL REFERENCES races(id), horse TEXT NOT NULL, stake INTEGER NOT NULL, payout INTEGER, UNIQUE(user_id,race_id));
@@ -285,14 +286,16 @@ export class Game {
     return [...this.presence.values()].filter((last) => last >= this.clock() - 30000).length;
   }
   rooms() {
+    const main=this.mainRoomCode();
     return this.all(
-      "SELECT r.code, COUNT(m.user_id) AS players FROM rooms r JOIN members m ON m.code=r.code GROUP BY r.code ORDER BY r.created DESC",
+      "SELECT r.code, COUNT(m.user_id) AS players FROM rooms r LEFT JOIN members m ON m.code=r.code GROUP BY r.code HAVING COUNT(m.user_id)>0 OR r.code=? ORDER BY r.created DESC",
+      main??"",
     ).map((room) => {
       const people = this.all("SELECT u.id,u.username,u.horse FROM members m JOIN users u ON u.id=m.user_id WHERE m.code=?", room.code);
       const members = people.map((p) => ({ username: p.username, horse: p.horse, online: (this.presence.get(p.id) ?? -Infinity) >= this.clock() - 30000 }));
-      return { ...room, online: members.filter((p) => p.online).length, members,
+      return { ...room, main: room.code===main, online: members.filter((p) => p.online).length, members,
         phase: this.latest(room.code)?.phase ?? "waiting", capacity: 7 };
-    }).sort((a,b) => b.online-a.online || b.players-a.players).slice(0,30);
+    }).sort((a,b) => Number(b.main)-Number(a.main) || b.online-a.online || b.players-a.players).slice(0,30);
   }
   transferAwayHost(code) {
     // A restart gets a grace period so the first reconnect cannot steal hosting.
@@ -323,22 +326,18 @@ export class Game {
   leave(id) {
     return this.transaction(() => this.leaveInside(id));
   }
-  create(id) {
-    return this.transaction(() => {
-      this.leaveInside(id);
-      let code;
-      do {
-        code = randomBytes(4).toString("hex").slice(0, 6).toUpperCase();
-      } while (this.one("SELECT code FROM rooms WHERE code=?", code));
-      this.run("INSERT INTO rooms VALUES(?,?,?)", code, id, this.clock());
-      this.run("INSERT INTO members VALUES(?,?)", id, code);
-      return code;
-    });
+  mainRoomCode() { return this.one("SELECT code FROM club_rooms WHERE kind='main'")?.code ?? null; }
+  createInside(id) {
+    this.leaveInside(id);
+    let code;
+    do { code=randomBytes(4).toString('hex').slice(0,6).toUpperCase(); }
+    while(this.one('SELECT code FROM rooms WHERE code=?',code));
+    this.run('INSERT INTO rooms VALUES(?,?,?)',code,id,this.clock());
+    this.run('INSERT INTO members VALUES(?,?)',id,code);
+    return code;
   }
-  join(id, code, horse) {
-    requireThat(typeof code === "string", "Enter a room code.");
-    code = code.toUpperCase();
-    return this.transaction(() => {
+  create(id) { return this.transaction(()=>this.createInside(id)); }
+  joinInside(id, code, horse) {
       requireThat(
         this.one("SELECT code FROM rooms WHERE code=?", code),
         "Room not found.",
@@ -368,6 +367,45 @@ export class Game {
       )
         this.run("UPDATE rooms SET host_id=? WHERE code=?", id, code);
       return code;
+  }
+  join(id, code, horse) {
+    requireThat(typeof code==='string','Enter a room code.');
+    return this.transaction(()=>this.joinInside(id,code.toUpperCase(),horse));
+  }
+  arrive(id, {switchRoom=false}={}) {
+    return this.transaction(()=>{
+      this.touch(id);
+      const current=this.membership(id);
+      if(current&&!switchRoom){
+        if(!this.mainRoomCode())this.run("INSERT INTO club_rooms VALUES('main',?)",this.rooms().find(r=>r.online>0)?.code??current);
+        return current;
+      }
+      requireThat(!this.active(id),'Finish this race before changing rooms.');
+      let main=this.mainRoomCode();
+      if(!main){
+        // Adopt an occupied public room so deployment does not split the people
+        // already playing. No existing member, race or host is moved.
+        main=this.rooms().find(r=>r.online>0)?.code;
+        if(!main)main=this.createInside(id);
+        this.run("INSERT INTO club_rooms VALUES('main',?)",main);
+      }
+      if(this.membership(id)===main)return main;
+      // Old idle memberships must not permanently fill the shared room. Give
+      // reconnecting clients two minutes after startup; never evict a racer.
+      if(this.clock()-this.startedAt>=120000 && this.one('SELECT COUNT(*) AS n FROM members WHERE code=?',main).n>=7){
+        const idle=this.all('SELECT user_id FROM members WHERE code=?',main)
+          .filter(m=>m.user_id!==id&&(this.presence.get(m.user_id)??-Infinity)<this.clock()-120000&&!this.active(m.user_id));
+        for(const m of idle)this.leaveInside(m.user_id);
+      }
+      if(switchRoom)requireThat(this.one('SELECT COUNT(*) AS n FROM members WHERE code=?',main).n<7,'The main room is full (7/7). Choose another room.');
+      const rooms=this.rooms(),primary=rooms.find(r=>r.code===main),open=r=>r.players<7;
+      const target=(switchRoom?{code:main}:null)??(primary&&open(primary)&&primary.online>0?primary:null)
+        ??rooms.filter(r=>r.online>0&&open(r)).sort((a,b)=>b.online-a.online||b.players-a.players)[0]
+        ??(this.one('SELECT COUNT(*) AS n FROM members WHERE code=?',main).n<7?{code:main}:null);
+      if(!target)return this.createInside(id); // A seven-seat field needs another room.
+      const u=this.profile(id),taken=new Set(this.all('SELECT u.horse FROM users u JOIN members m ON m.user_id=u.id WHERE m.code=? AND u.id<>?',target.code,id).map(r=>r.horse));
+      const horse=!taken.has(u.horse)?u.horse:ACTOR_IDS.find(h=>!taken.has(h));
+      return this.joinInside(id,target.code,horse);
     });
   }
   start(id, code) {
@@ -618,6 +656,7 @@ export class Game {
     const publicDefinition=definition&&live?publicLiveRace(definition,r.phase==="results"?raceFinishedAt(definition):(this.clock()-r.starts)/1000,{id:r.id,revision:live.revision}):definition;
     return {
       code,
+      main: code===this.mainRoomCode(),
       hostId: room.host_id,
       members,
       race: r

@@ -47,6 +47,7 @@ export class MultiplayerUI {
     this.onChange = onChange;
     this.token = storedToken();
     this.user = null;
+    this.arrivedToken = null;
     this.room = null;
     this.rules = null;
     this.online = false;
@@ -69,15 +70,16 @@ export class MultiplayerUI {
     this.lastRoomPoll = 0;
     $("multiplayer").innerHTML =
       `<div id="mp-account" hidden><div class="club-tabs" role="tablist" aria-label="Your stable and progress"><button id="mp-tab-live" class="club-tab" role="tab" aria-controls="mp-live-panel" aria-selected="true">Your stable & training</button><button id="mp-tab-upgrades" class="club-tab" role="tab" aria-controls="mp-upgrades-panel" aria-selected="false" tabindex="-1">Horse & power upgrades · 20 paths</button><button id="mp-tab-history" class="club-tab" role="tab" aria-controls="mp-history-panel" aria-selected="false" tabindex="-1">Past bets & results <span id="mp-history-count">0</span></button></div>
-  <div id="mp-live-panel" role="tabpanel" aria-labelledby="mp-tab-live"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Train how your horse runs. Race-day form and luck still matter.</p><div id="mp-upgrades" class="training-grid" aria-label="Train your racer"></div><button id="mp-open-workshop" type="button" class="button quiet workshop-link">Explore horse & power upgrades →</button><details class="training-help"><summary>How training works</summary><p class="club-note">Training changes your horse’s movement throughout the race. Your levels follow you when you change riders. The original three skills have five permanent levels; the workshop adds longer specialist paths and repeatable mastery. Higher levels cost more. Training locks when betting opens and applies to your own racer, regardless of your bet. No upgrade guarantees a win.</p></details><section class="signature-card" aria-label="Your rider power"><span class="eyebrow">SIGNATURE POWER</span><h4 id="mp-power-name"></h4><p id="mp-power-description" class="club-note"></p><p class="club-note">You choose when to use it during a live race. CPU riders choose automatically. One use per race, starting at 75 game coins. Power budget training lowers the cost.</p><details><summary>Meet all seven powers</summary>${Object.entries(POWERS).map(([id,p]) => `<p><strong>${HORSES[id]} · ${p.name}</strong><br>${p.description}</p>`).join("")}</details></section><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bets lose. Win, Place and Show offer different returns, including the stake. Career points and wins track your own horse.</p></section></div>
+  <div id="mp-live-panel" role="tabpanel" aria-labelledby="mp-tab-live"><section class="club-box"><h3>Your stable</h3><form id="mp-horse-form" class="club-row"><label class="field">Horse & rider<select id="mp-horse"></select></label><button class="button" type="submit">Save choice</button></form><p class="club-note">Train Speed, Stamina and Focus, or open the workshop for more upgrades.</p><div id="mp-upgrades" class="training-grid" aria-label="Train your racer"></div><button id="mp-open-workshop" type="button" class="button quiet workshop-link">Explore horse & power upgrades →</button><details class="training-help"><summary>How training works</summary><p class="club-note">Training changes your horse’s movement throughout the race. Your levels follow you when you change riders. The original three skills have five permanent levels; the workshop adds longer specialist paths and repeatable mastery. Higher levels cost more. Training locks when betting opens and applies to your own racer, regardless of your bet. No upgrade guarantees a win.</p></details><section class="signature-card" aria-label="Your rider power"><span class="eyebrow">SIGNATURE POWER</span><h4 id="mp-power-name"></h4><p id="mp-power-description" class="club-note"></p><p class="club-note">You choose when to use it during a live race. CPU riders choose automatically. One use per race, starting at 75 game coins. Power budget training lowers the cost.</p><details><summary>Meet all seven powers</summary>${Object.entries(POWERS).map(([id,p]) => `<p><strong>${HORSES[id]} · ${p.name}</strong><br>${p.description}</p>`).join("")}</details></section><p id="mp-career" class="club-note"></p><p class="club-note scoring-note"><strong>Two ways to earn coins</strong>Your horse earns a finish prize, even if your bets lose. Win, Place and Show offer different returns, including the stake. Career points and wins track your own horse.</p></section></div>
   <section id="mp-history-panel" class="club-history" role="tabpanel" aria-labelledby="mp-tab-history" hidden><div class="history-heading"><div><p class="eyebrow">SAVED WITH YOUR ACCOUNT</p><h3 id="mp-history-title">Bet slips & race results</h3><p class="club-note">Your bet result and your horse’s finish prize are separate. Round totals include both; upgrades are separate purchases.</p></div><div class="history-actions"><label class="field">Show<select id="mp-history-filter"><option value="all">All rounds</option><option value="won">Won bets</option><option value="lost">Lost bets</option><option value="pending">Pending bets</option><option value="none">No bet placed</option></select></label><button id="mp-refresh-slips" class="button quiet">Refresh slips</button></div></div><p id="mp-history-summary" class="club-note" role="status"></p><div id="mp-slips" class="slip-grid"></div><button id="mp-more-slips" class="button quiet" hidden>Show more rounds</button></section>
   <section id="mp-upgrades-panel" class="club-history" role="tabpanel" aria-labelledby="mp-tab-upgrades" hidden><div id="mp-workshop"></div></section><details class="club-ledger"><summary>Recent coin activity & race rules</summary><p class="club-note">Up to one Win, one Place and one Show bet per race, 10–500 coins each. Win needs 1st and returns 4×; Place needs top 2 and returns 2×; Show needs top 3 and returns 1.5×. These are fixed game returns including the stake; fractional coins round down. Each ticket settles independently, including if your pick wins a Place or Show bet. All bets are final. Base finish prizes: 200 / 140 / 100 / 75 / 50 / 35 / 25 coins. Club purse training increases your own finish prize; bonuses round down to whole coins. Points: 12 / 9 / 7 / 5 / 3 / 2 / 1. Prizes are awarded when the round ends, even if you disconnect. Accounts stay on this server; use the same site to return.</p><button id="mp-history" class="button quiet">Refresh activity</button><ul id="mp-ledger"></ul></details></div>`;
     $("multiplayer").hidden = true;
-    $("club-access").innerHTML = `<div class="club-heading"><span id="mp-connection" role="status">Connecting…</span><span class="club-note">Free game coins · saved progress</span></div><p id="mp-error" role="alert" hidden></p><form id="mp-auth" class="club-row"><label class="field">Username<input id="mp-username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required></label><label class="field">Password<input id="mp-password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><button class="button primary" type="submit" name="action" value="login">Sign in</button><button class="button" type="submit" name="action" value="register">Create account</button></form><div id="mp-player" class="club-row account-row" hidden><strong id="mp-name"></strong><span id="mp-wallet"></span><button id="mp-logout" class="button quiet">Sign out</button></div>`;
-    $("race-room-slot").innerHTML = `<section id="mp-racing-card" class="club-box racing-card" aria-labelledby="mp-racing-title" hidden><h3 id="mp-racing-title">Race with friends</h3><div id="mp-lobby"><button id="mp-create" class="button primary">Create room</button><form id="mp-join-form" class="club-row"><label class="field">Room code<input id="mp-code" maxlength="6" minlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="ABC123" required></label><button class="button" type="submit">Join room</button></form></div>
-  <div id="mp-room" hidden><div class="club-row"><strong id="mp-room-name"></strong><button id="mp-leave" class="button quiet">Leave room</button></div><p id="mp-members" class="club-note"></p><details class="racer-builds"><summary>Racer training & powers</summary><div id="mp-racer-builds"></div></details><strong id="mp-phase"></strong><p class="club-note">Seven starters; CPU racers fill empty places. The host opens each round.</p><div id="mp-finish-order" hidden><details><summary>Last race prizes</summary><ol id="mp-results"></ol></details></div></div><div id="mp-room-directory" class="room-directory" aria-label="Other race rooms"></div></section>`;
+    $("club-access").innerHTML = `<p id="mp-error" role="alert" hidden></p><form id="mp-auth" class="club-row"><label class="field">Username<input id="mp-username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required></label><label class="field">Password<input id="mp-password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label><button class="button primary" type="submit" name="action" value="login">Sign in</button><button class="button" type="submit" name="action" value="register">Create account</button></form><div id="mp-player" class="club-row account-row" hidden><strong id="mp-room-summary">Joining main room…</strong><span id="mp-name"></span><span id="mp-wallet"></span><span id="mp-connection" role="status">Connecting…</span><button id="mp-logout" class="button quiet">Sign out</button></div>`;
+    $("race-room-slot").innerHTML = `<section id="mp-racing-card" class="club-box racing-card" aria-labelledby="mp-racing-title" hidden><h3 id="mp-racing-title">Race rooms</h3><div id="mp-lobby"><div class="room-options"><button id="mp-main" class="button">Join main room</button><button id="mp-create" class="button quiet">Create your own room</button></div><form id="mp-join-form" class="club-row"><label class="field">Room code<input id="mp-code" maxlength="6" minlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="ABC123" required></label><button class="button" type="submit">Join room</button></form></div>
+  <div id="mp-room" hidden><div class="club-row"><strong id="mp-room-name"></strong><button id="mp-leave" class="button quiet">Leave room</button></div><p id="mp-members" class="club-note"></p><details class="racer-builds"><summary>Racer training & powers</summary><div id="mp-racer-builds"></div></details><strong id="mp-phase"></strong><p class="club-note">7 riders per race · CPUs fill open seats.</p><div id="mp-finish-order" hidden><details><summary>Last race prizes</summary><ol id="mp-results"></ol></details></div></div><div id="mp-room-directory" class="room-directory" aria-label="Other race rooms"></div></section>`;
     $("race-actions").innerHTML = `<div id="race-start-control" class="race-start-control"><span class="eyebrow">NEXT RACE</span><button id="mp-start" class="button primary" hidden>Open betting · start next race</button><p id="race-start-status" class="club-note" role="status"></p></div>`;
     $("race-bets").innerHTML = `<section class="current-slip" id="mp-betting-card" aria-labelledby="mp-betting-title"><div class="betting-card-heading"><h3 id="mp-betting-title">Place bets</h3><button id="mp-view-slips" type="button" class="button quiet">Past bets & results →</button></div><p id="mp-betting-state" class="club-note" role="status"></p><p class="club-note bet-types-note">Win: 1st · 4× return. Place: top 2 · 2×. Show: top 3 · 1.5×. Returns include your stake; fractional coins round down. Up to one of each type per round.</p><form id="mp-bet-form" class="club-row" hidden><label class="field">Bet type<select id="mp-bet-kind"><option value="win">Win · finish 1st</option><option value="place">Place · finish top 2</option><option value="show">Show · finish top 3</option></select></label><label class="field">Your pick<select id="mp-bet-horse"></select></label><label class="field">Stake<input id="mp-stake" type="number" min="10" max="500" step="1" value="50" required></label><button class="button primary" type="submit">Place bet</button><p id="mp-bet-preview" class="club-note"></p></form><div id="mp-bet-note" aria-live="polite"></div></section>`;
+    $("mp-room").after($("mp-lobby"));
     this.roomBrowser = new RoomBrowser($("mp-room-directory"), {
       refresh: () => void this.action(() => this.refreshRooms()),
       join: (code, horse) => void this.action(async () => {
@@ -151,6 +153,7 @@ export class MultiplayerUI {
         this.api("/api/horse", { horse: $("mp-horse").value }),
       );
     };
+    $("mp-main").onclick=()=>void this.action(()=>this.api("/api/rooms/main",{}));
     $("mp-create").onclick = () =>
       void this.action(() => this.api("/api/rooms", {}));
     $("mp-join-form").onsubmit = (e) => {
@@ -304,7 +307,9 @@ export class MultiplayerUI {
     try {
       if (this.token) {
         if(force||!this.user||Date.now()-this.lastMePoll>=5000){
-          const me=await this.api('/api/me');this.user=me.user;this.rules=me.rules;
+          const arriving=this.arrivedToken!==this.token;
+          const me=await this.api(arriving?'/api/arrival':'/api/me',arriving?{}:undefined);this.user=me.user;this.rules=me.rules;
+          if(arriving)this.arrivedToken=this.token;
           this.roomCode=me.roomCode;this.lastMePoll=Date.now();
         }
         if(this.roomCode){const response=await this.api(`/api/rooms/${this.roomCode}`);this.acceptRoom(response.room,response);}
@@ -478,16 +483,16 @@ export class MultiplayerUI {
     $("race-actions").hidden = !this.user || !this.room;
     $("race-bets").hidden = !this.user;
     $("mp-start").hidden = !this.user || !this.room;
-    $("mp-betting-state").textContent = !this.room ? "Join or create a room to place bets." :
-      !this.room.race ? "The host opens betting before each race. Choose Win, Place or Show when the countdown begins." :
-      this.room.race.phase === 'betting' ? "Betting is open. Place your tickets before the countdown ends." :
-      this.room.race.phase === 'racing' ? "Betting is closed. Your tickets settle when the race finishes." : "Round complete. Your tickets and finish prize are saved below.";
+    $("mp-betting-state").textContent = !this.room ? "Join the main room or choose another room to bet." :
+      !this.room.race ? "Betting opens when the host starts the next race." :
+      this.room.race.phase === 'betting' ? "Place your bets before the countdown ends." :
+      this.room.race.phase === 'racing' ? "Betting is closed. Your tickets settle when the race finishes." : "Race settled. Your bets and finish prize are below.";
     if(!this.room){$("mp-bet-note").replaceChildren();this.slipSignature=null;}
     $("mp-connection").textContent = this.online
       ? this.user
-        ? "Connected · progress saved on server"
-        : "Connected · sign in to save"
-      : "Server unavailable · reconnecting";
+        ? "Saved"
+        : "Sign in"
+      : "Reconnecting…";
     if (!this.user) return;
     const u = this.user,
       r = this.room?.race,
@@ -501,7 +506,7 @@ export class MultiplayerUI {
     this.workshop.render({user:u,locked,busy:this.busy,online:this.online});
     $("mp-name").textContent = u.username;
     $("mp-wallet").textContent =
-      `${u.coins.toLocaleString()} coins · ${u.points} points`;
+      `${u.coins.toLocaleString()} coins · ${u.points} pts`;
     $("mp-career").textContent =
       `${u.races} races · ${u.wins} wins · Upgrades stay with your account.`;
     $("mp-power-name").textContent = POWERS[u.horse].name;
@@ -549,7 +554,11 @@ export class MultiplayerUI {
         }),
       );
     }
-    $("mp-lobby").hidden = Boolean(this.room);
+    $("mp-lobby").hidden = false;
+    $("mp-main").disabled=this.busy||!this.online||locked||Boolean(this.room?.main);
+    $("mp-create").disabled=this.busy||!this.online||locked;
+    for(const el of $("mp-join-form").elements)el.disabled=this.busy||!this.online||locked;
+    $("mp-room-summary").textContent=this.room?(this.room.main?"Main room":`Room ${this.room.code}`):"Choose a room";
     $("mp-room").hidden = !this.room;
     for (const el of $("mp-horse-form").elements)
       el.disabled = locked || this.busy || !this.online;
@@ -587,8 +596,8 @@ export class MultiplayerUI {
     this.updateBettingControls();
     $("mp-start").disabled = this.busy || !this.online;
     $("race-start-status").textContent = r?.phase === 'betting' ? 'Bets are open · the race starts automatically.' :
-      r?.phase === 'racing' ? 'Race in progress · choose your moment for a special.' :
-      this.room.hostId === u.id ? 'Open the countdown so everyone has time to bet.' : 'Waiting for the host to open betting.';
+      r?.phase === 'racing' ? 'Race in progress.' :
+      this.room.hostId === u.id ? 'Start a 30-second betting countdown.' : 'Waiting for the host to open betting.';
     $("mp-leave").disabled = this.busy || !this.online || locked;
     const slipSignature = JSON.stringify([this.room.code, r?.id, r?.phase, r?.bet, r?.bets, r?.results, r?.powerSpent, u.id]);
     if (slipSignature !== this.slipSignature) {

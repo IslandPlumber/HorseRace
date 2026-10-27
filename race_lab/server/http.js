@@ -12,6 +12,7 @@ const MIME = {
   ".wav": "audio/wav",
   ".md": "text/plain; charset=utf-8",
   ".png": "image/png",
+  ".svg": "image/svg+xml",
 };
 export function createServer(
   game,
@@ -131,6 +132,14 @@ export function createServer(
             break;
           case "GET /api/rooms":
             result = { rooms: game.rooms(), online: game.onlineCount() };
+            break;
+          case "POST /api/arrival":
+            game.arrive(id);
+            result=game.me(id);
+            break;
+          case "POST /api/rooms/main":
+            game.arrive(id,{switchRoom:true});
+            result=game.me(id);
             break;
           case "POST /api/rooms":
             result = { code: game.create(id) };

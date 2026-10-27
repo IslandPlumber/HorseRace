@@ -106,7 +106,7 @@ function showError(error) {
   $('error').textContent = error?.message || 'The race could not load. Please try again.';
   $('error').hidden = false;
 }
-function setBusy(value, message = 'Loading reusable rider models…') {
+function setBusy(value, message = 'Loading racers…') {
   loading = value;
   $('loading').hidden = !value;
   $('loading').textContent = message;
@@ -534,7 +534,7 @@ renderer.setAnimationLoop((now) => {
     }
     if(time!==previousTime)needsRender=true;
     if(playing||needsRender)displayFrame();
-    if(multiplayer?.managed){const r=multiplayer.room.race;$('race-note').textContent=r?.phase==='racing'?'Live shared race · use your ability at the right moment. Cameras and sound are personal.':r?.phase==='results'?'Official result · coins and points saved.':'Waiting at the gates · betting closes before the race is prepared.';if(!multiplayer.frame().ready)$('race-title').textContent='Live room · waiting for the start';}
+    if(multiplayer?.managed){const r=multiplayer.room.race;$('race-note').textContent=r?.phase==='racing'?'Race live · press F or tap your special to use it.':r?.phase==='results'?'Final result · bets settled and prizes saved.':'At the gates · waiting for the next race.';const title=r?`Race ${r.number}`:'Next race';if($('race-title').textContent!==title)$('race-title').textContent=title;if(!multiplayer.frame().ready){document.querySelector('.stage-heading .eyebrow').textContent=r?.phase==='betting'?'BETTING':'RACE LOBBY';$('duration').textContent='';}}
   }
   if(needsRender||playing){renderer.render(scene, camera);needsRender=false;}
 });

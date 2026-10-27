@@ -56,7 +56,8 @@ const proxy=http.createServer((req,res)=>{
   const entry={path:pathname,method:req.method,start:performance.now(),delay:/^\/api\/rooms\/[A-F0-9]{6}$/.test(pathname)?roomDelay:auxiliaryDelay&&['/api/me','/api/rooms','/api/history'].includes(pathname)?auxiliaryDelay:0};
   if(pathname.startsWith('/api/'))requests.push(entry);
   const forward=()=>{
-    const target=http.request({host:'127.0.0.1',port:server.address().port,path:pathname+parsed.search,method:req.method,headers:req.headers},upstream=>{
+    const address=server.address();if(!address){res.destroy();return;} // Delayed fixture requests may outlive teardown.
+    const target=http.request({host:'127.0.0.1',port:address.port,path:pathname+parsed.search,method:req.method,headers:req.headers},upstream=>{
       entry.status=upstream.statusCode;entry.headers=performance.now();
       res.writeHead(upstream.statusCode,upstream.headers);upstream.pipe(res);
       upstream.on('end',()=>{entry.end=performance.now();});

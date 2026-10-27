@@ -25,6 +25,7 @@ const result = await build({entryPoints:[path.join(root,'app.js')],bundle:true,w
   minify:true,format:'iife',target:'es2022',legalComments:'inline'});
 const css = await readFile(path.join(root,'styles.css'),'utf8');
 let html = await readFile(path.join(root,'index.html'),'utf8');
+html=html.replace('./assets/branding/horserace.svg','data:image/svg+xml;base64,'+(await readFile(path.join(root,'assets/branding/horserace.svg'))).toString('base64'));
 html = html.replace('<link rel="stylesheet" href="./styles.css">',()=>`<style>${css}</style>`)
   .replace(/\s*<script type="importmap">[\s\S]*?<\/script>/,'');
 html = html.replace('</head>','<link rel="icon" href="data:,">\n</head>');

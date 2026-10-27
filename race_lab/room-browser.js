@@ -13,14 +13,14 @@ export class RoomBrowser {
   const onlineOnly=this.root.querySelector('#mp-online-only').checked;
   const signature=JSON.stringify([data,state,onlineOnly]);
   if(signature===this.signature)return;this.signature=signature;
-  this.root.querySelector('#mp-online').textContent=`${data.online??0} ${(data.online??0)===1?'racer':'racers'} online · room list updates automatically`;
+  this.root.querySelector('#mp-online').textContent=`${data.online??0} ${(data.online??0)===1?'racer':'racers'} online · live room list`;
   this.root.querySelector('#mp-switch-note').hidden=!state.locked;
   const list=this.root.querySelector('#mp-rooms');list.replaceChildren();
-  const rooms=(data.rooms??[]).filter(r=>!onlineOnly||r.online>0||r.code===state.currentCode);
+  const rooms=(data.rooms??[]).filter(r=>!onlineOnly||r.main||r.online>0||r.code===state.currentCode);
   for(const room of rooms){
    const own=room.code===state.currentCode,full=room.players>=room.capacity;
    const card=make('article','room-card'+(own?' room-current':''));card.dataset.roomCode=room.code;
-   const heading=make('div','room-card-heading');heading.append(make('strong','',room.code),make('span','room-phase',own?'Your room':room.phase==='racing'?'Race live':room.phase==='betting'?'Betting open':'Ready to race'));card.append(heading);
+   const heading=make('div','room-card-heading');heading.append(make('strong','',room.main?'Main room':room.code),make('span','room-phase',own?'Your room':room.phase==='racing'?'Race live':room.phase==='betting'?'Betting open':'Ready to race'));card.append(heading);
    card.append(make('p','room-occupancy',`${room.online} online · ${room.players}/${room.capacity} places`));
    card.append(make('p','room-people',room.members.map(m=>m.username+(m.online?'':' (away)')).join(' · ')));
    if(!own){
@@ -39,6 +39,6 @@ export class RoomBrowser {
    }
    list.append(card);
   }
-  if(!rooms.length)list.append(make('p','club-note','No other rooms are online yet. Keep this page open—new rooms appear here automatically.'));
+  if(!rooms.length)list.append(make('p','club-note','No other rooms online. New players join the main room automatically.'));
  }
 }
