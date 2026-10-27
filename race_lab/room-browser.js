@@ -4,7 +4,7 @@ const make=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.classNa
 export class RoomBrowser {
  constructor(root,{join,refresh}){
   this.root=root;this.join=join;this.picks=new Map();
-  root.innerHTML='<div class="room-directory-heading"><h3>Find your next race</h3><button id="mp-find" class="button quiet">Refresh</button></div><p id="mp-online" class="club-note" role="status">Looking for other racers…</p><label class="room-filter"><input id="mp-online-only" type="checkbox" checked> Online rooms only</label><p id="mp-switch-note" class="club-note" hidden>Finish your current race before switching rooms. Your bet and prizes stay safe.</p><div id="mp-rooms" class="room-directory-list"></div>';
+  root.innerHTML='<div class="room-directory-heading"><h4>Rooms online</h4><button id="mp-find" class="button quiet">Refresh</button></div><p id="mp-online" class="club-note" role="status">Looking for other racers…</p><label class="room-filter"><input id="mp-online-only" type="checkbox" checked> Online rooms only</label><p id="mp-switch-note" class="club-note" hidden>Finish your current race before switching rooms. Your bet and prizes stay safe.</p><div id="mp-rooms" class="room-directory-list"></div>';
   root.querySelector('#mp-find').onclick=refresh;
   root.querySelector('#mp-online-only').onchange=()=>{this.signature=null;this.render(this.data,this.state);};
  }

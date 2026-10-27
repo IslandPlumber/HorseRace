@@ -25,8 +25,10 @@ $('crowd-volume').addEventListener('input',()=>{raceAudio.setCrowdVolume(Number(
 $('hoof-volume').addEventListener('input',()=>{raceAudio.setHoofVolume(Number($('hoof-volume').value)/100);soundControls();});
 $('power-volume').addEventListener('input',()=>{raceAudio.setPowerVolume(Number($('power-volume').value)/100);soundControls();});
 // A real sign-in, room or betting gesture arms audio before asynchronous work.
-$('multiplayer').addEventListener('pointerdown',()=>{if(!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
-$('multiplayer').addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
+for(const id of ['multiplayer','club-access','race-actions','race-bets','race-room-slot']){
+  $(id).addEventListener('pointerdown',()=>{if(!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
+  $(id).addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&!raceAudio.muted&&raceAudio.ctx?.state!=='running')void armSound();});
+}
 soundControls();
 const viewport = $('viewport');
 const scene = new THREE.Scene();
@@ -558,4 +560,4 @@ window.raceLab = {
 };
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 window.addEventListener('pagehide', () => { disposed = true;powerView.dispose();raceAudio.dispose();multiplayer?.dispose(); renderer.setAnimationLoop(null); observer.disconnect(); });
-void loadExample('demo-a').then(()=>{multiplayer=new MultiplayerUI({load:def=>loadRace(def,{source:'live'}),update:updateLiveRace,onChange:()=>{needsRender=true;document.querySelector('.race-tools').hidden=Boolean(multiplayer?.managed);syncControls();}});});
+void loadExample('demo-a').then(()=>{multiplayer=new MultiplayerUI({load:def=>loadRace(def,{source:'live'}),update:updateLiveRace,onChange:()=>{needsRender=true;document.querySelector('.practice-setup').hidden=Boolean(multiplayer?.managed);document.querySelector('.transport').hidden=Boolean(multiplayer?.managed);syncControls();}});});

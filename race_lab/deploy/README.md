@@ -59,6 +59,13 @@ and horse textures through those fetches; blocking them produces white models.
 in a real browser, including phone widths. `BROWSER_CHANNEL` selects an installed
 Playwright browser channel (defaults to Chrome).
 
+The club page puts the race first: live order and one combined room/discovery card
+sit alongside the screen on desktop. Start and ability controls follow the
+viewport, then betting and sound, with stable/workshop/history below. Room,
+betting and ability controls remain independent of the lower panel tabs. On
+phones the sidebar stacks below the race controls. Practice setup is collapsed
+and hidden during managed club races.
+
 Saved slips are derived from race snapshots, tickets and coin ledger rows.
 Win/Place/Show adds a `race_bets` table without altering or rebuilding existing
 tables; old Win bets stay in `bets` and retain their 4× terms. The authenticated `/api/history` endpoint
