@@ -8,8 +8,8 @@ export function buildAudioPlan(race){
  for(let t=delay+.1;t<finish;t+=.1){const leader=sampleRace(race,t).standings[0];if(leader!==previous&&t>delay+.4)changes.push({time:Math.round(t*1000)/1000,leader});previous=leader;}
  return {delay,finish,changes,duration:race.duration};
 }
-export function crowdProfile(race,plan,time,shot='broadcast'){
- const t=clamp(time,0,race.duration),state=sampleRace(race,t),lead=state.runners.find(r=>r.id===state.standings[0]);
+export function crowdProfile(race,plan,time,shot='broadcast',sample){
+ const t=clamp(time,0,race.duration),state=sample??sampleRace(race,t),lead=state.runners.find(r=>r.id===state.standings[0]);
  const remaining=Math.max(0,race.track.length-lead.distance),home=race.track.startOffset??race.track.length*.2;
  let cheer=t<plan.delay?.015:.07;
  if(t>=plan.delay)cheer+=.24*Math.exp(-(((t-plan.delay-.6)/1.2)**2));
@@ -28,4 +28,11 @@ export function cueSchedule(plan,time,bugleDuration){
  // schedules exactly one cue on the AudioContext clock at the actual release.
  if(time<=plan.delay+.001)cues.push({id:'shot',after:Math.max(0,plan.delay-time),offset:0});
  return cues;
+}
+/** Brief reactions, rather than a continuously looping stadium cheer. */
+export function cheerSchedule(plan,time,duration=4){
+ const candidates=[{time:plan.delay+.8,kind:'start'},...plan.changes.map(c=>({time:c.time,kind:'lead'})),{time:plan.finish,kind:'finish'}].sort((a,b)=>a.time-b.time);
+ const selected=[];
+ for(const cue of candidates)if(cue.kind==='finish'||!selected.length||cue.time-selected.at(-1).time>=4)selected.push(cue);
+ return selected.flatMap(cue=>{const length=Math.min(duration,cue.kind==='finish'?4:2.3);if(time>=cue.time+length)return[];const offset=Math.max(0,time-cue.time);return[{...cue,after:Math.max(0,cue.time-time),offset,duration:length-offset}];});
 }

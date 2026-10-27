@@ -5,13 +5,15 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {ACTOR_IDS} from './race-core.js';
+import {POWER_CLIPS} from './power-audio.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const manifest = JSON.parse(await readFile(path.join(root,'asset-manifest.json'),'utf8'));
 assert.deepEqual(manifest.actors.map(actor=>actor.id).sort(),[...ACTOR_IDS].sort(),
   'Wait for the complete seven-actor export before bundling.');
 const embedded = {assets:{},races:{},audio:{}};
-for(const id of ['bugle','crowd','cheer'])embedded.audio[id]='data:audio/mpeg;base64,'+(await readFile(path.join(root,'audio',`${id}.mp3`))).toString('base64');
+for(const id of ['bugle','crowd','cheer','hooves'])embedded.audio[id]='data:audio/mpeg;base64,'+(await readFile(path.join(root,'audio',`${id}.mp3`))).toString('base64');
+for(const key of POWER_CLIPS)embedded.audio[key]='data:audio/wav;base64,'+(await readFile(path.join(root,'audio','powers',`${key}.wav`))).toString('base64');
 for (const actor of manifest.actors) {
   embedded.assets[actor.id] = 'data:model/gltf-binary;base64,' +
     (await readFile(path.join(root,actor.file))).toString('base64');
@@ -23,6 +25,7 @@ const result = await build({entryPoints:[path.join(root,'app.js')],bundle:true,w
   minify:true,format:'iife',target:'es2022',legalComments:'inline'});
 const css = await readFile(path.join(root,'styles.css'),'utf8');
 let html = await readFile(path.join(root,'index.html'),'utf8');
+html=html.replace('./assets/branding/horserace.svg','data:image/svg+xml;base64,'+(await readFile(path.join(root,'assets/branding/horserace.svg'))).toString('base64'));
 html = html.replace('<link rel="stylesheet" href="./styles.css">',()=>`<style>${css}</style>`)
   .replace(/\s*<script type="importmap">[\s\S]*?<\/script>/,'');
 html = html.replace('</head>','<link rel="icon" href="data:,">\n</head>');
@@ -38,7 +41,8 @@ Elon: Debbie Rowe / The Royal Society, <a href="https://commons.wikimedia.org/wi
 Gordon: 20thC.Fox / Everett / Rex Features via <a href="https://imgflip.com/meme/Chef-Gordon-Ramsay">Imgflip</a>.
 Snoop: Mike Egerton / PA Images via Getty Images, <a href="https://www.nbcolympics.com/news/our-favorite-snoop-dogg-looks-2024-paris-olympics">NBC Olympics</a>.
 Other third-party photographs retain their individual terms; no open redistribution license is asserted for them.
-No endorsement implied. Cutout parody; no generated faces or voices. Three.js: MIT. Bugle: U.S. Army, public domain. Crowd: eguobyte, CC0. Cheering: WebbFilmsUK, <a href="https://commons.wikimedia.org/wiki/File:F1-Race-Crowd-Applause-Air-Horns.wav">source recording</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, via Wikimedia Commons; trimmed, looped and level-adjusted. Starter shot: original procedural sound design.</p></details>`;
+No endorsement implied. Cutout parody; no generated faces or voices. Three.js: MIT. Bugle: U.S. Army, public domain. Quiet audience and applause: stephan, public domain. Gallop texture: Bruno Auzet / Freesound Community, CC0.
+Starter, hoof synthesis and comic power clips: original sound design, CC0. Comic stings contain no sampled celebrity speech. No endorsement implied.</p></details>`;
 html = html.replace('</main>',()=>credits+'\n</main>');
 html = html.replace('<script type="module" src="./app.js"></script>',
   ()=>`<script>globalThis.RACE_LAB_EMBEDDED=${config};</script>\n<script>${code}</script>`);

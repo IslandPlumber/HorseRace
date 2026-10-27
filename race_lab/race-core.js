@@ -43,6 +43,12 @@ export function validateRace(race) {
   insist(nonempty(race.title) && race.title.length <= 200, "title must be a nonempty string of at most 200 characters");
   insist(typeof race.seed === "string" || finite(race.seed), "seed must be a string or finite number");
   insist(finite(race.duration) && race.duration > 0, "duration must be positive");
+  const live = race.live === true;
+  if (live) {
+    insist(typeof race.completed === "boolean", "live completion flag must be boolean");
+    insist(finite(race.availableTime) && race.availableTime >= 0 && race.availableTime <= race.duration, "invalid live history boundary");
+    insist(race.seed === "live", "live race must not expose its private seed");
+  }
   insist(race.track && ['straight','circuit'].includes(race.track.type), 'track must be straight or circuit');
   if(race.track.type==='circuit') {
     const t=race.track;
@@ -66,7 +72,7 @@ export function validateRace(race) {
       `${runner.id}: lane must be an integer within the selected field`);
     insist(!lanes.has(runner.lane), `duplicate lane ${runner.lane}`);
     lanes.add(runner.lane);
-    insist(Array.isArray(runner.progress) && runner.progress.length >= 2,
+    insist(Array.isArray(runner.progress) && runner.progress.length >= (live ? 1 : 2),
       `${runner.id}: at least two progress keyframes are required`);
     for (let i = 0; i < runner.progress.length; i += 1) {
       const p = runner.progress[i];
@@ -82,13 +88,14 @@ export function validateRace(race) {
     }
     const first = runner.progress[0], last = runner.progress.at(-1);
     insist(first.time === 0 && first.distance === 0, `${runner.id}: must start at time 0 and distance 0`);
-    insist(last.time === race.duration, `${runner.id}: final keyframe must equal race duration`);
+    insist(last.time === (live ? race.availableTime : race.duration), `${runner.id}: final keyframe must equal the available history boundary`);
     const finishTime = crossingTime(runner, race.track.length);
-    insist(finishTime < race.duration, `${runner.id}: must cross the finish before the race ends`);
+    if (!live || race.completed) insist(finishTime < race.duration, `${runner.id}: must cross the finish before the race ends`);
     if(race.startDelay)insist(runner.progress.filter(p=>p.time<=race.startDelay).every(p=>p.distance===0),`${runner.id}: movement before gate release`);
     finishTimes.set(runner.id, finishTime);
   }
-  insist(Array.isArray(race.outcome) && race.outcome.length === ids.size &&
+  if (live && !race.completed) insist(Array.isArray(race.outcome) && race.outcome.length === 0, "unfinished live race cannot expose an outcome");
+  else insist(Array.isArray(race.outcome) && race.outcome.length === ids.size &&
     new Set(race.outcome).size === ids.size && race.outcome.every(id => ids.has(id)),
   "outcome must list every selected rider exactly once");
   // The declared result is a check on the timeline, never a substitute for it.
@@ -104,9 +111,21 @@ export function validateRace(race) {
     insist(event.type === "caption", "version 1 supports caption events only");
     insist(finite(event.time) && event.time >= 0 && event.time < race.duration,
       `${event.id}: event time must be within the race`);
+    if (live) insist(event.time <= race.availableTime, "live event cannot reveal a future activation");
     insist(finite(event.duration) && event.duration > 0 && event.time + event.duration <= race.duration + 1e-8,
       `${event.id}: event duration must be positive and finish within the race`);
     insist(nonempty(event.text) && event.text.length <= 500, `${event.id}: caption must contain 1–500 characters`);
+    if (event.power !== undefined) {
+      insist(['hat','rocket','icecream','filibuster','mittens','kitchen','chill'].includes(event.power), 'unknown power effect');
+      insist(ids.has(event.actor), 'power actor must be in the race');
+      insist(Array.isArray(event.targets) && event.targets.length <= 3 &&
+        new Set(event.targets).size === event.targets.length &&
+        event.targets.every(id => ids.has(id) && id !== event.actor), 'invalid power targets');
+      insist(finite(event.hitTime) && event.hitTime >= event.time && event.hitTime < race.duration &&
+        finite(event.hitDuration) && event.hitDuration >= 0 &&
+        event.hitTime + event.hitDuration <= race.duration, 'invalid power impact window');
+      insist(typeof event.assist === 'boolean', 'power assist flag must be boolean');
+    }
   }
   return race;
 }
@@ -131,7 +150,7 @@ function distanceAt(progress, time) {
 export function sampleRace(race, time) {
   validateRace(race);
   insist(finite(time), "sample time must be finite");
-  const t = Math.max(0, Math.min(race.duration, time));
+  const t = Math.max(0, Math.min(race.live ? race.availableTime : race.duration, time));
   const runners = race.cast.map(runner => {
     const distance = distanceAt(runner.progress, t);
     const finishTime = crossingTime(runner, race.track.length);

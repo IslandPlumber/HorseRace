@@ -1,6 +1,6 @@
 import {execFile} from 'node:child_process';import {promisify} from 'node:util';
 import {chromium} from '@playwright/test';import assert from 'node:assert/strict';import {mkdir,writeFile} from 'node:fs/promises';
-const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-dev-shm-usage']});
+const browser=await chromium.launch({...(process.platform==='win32'?{channel:'chrome'}:{executablePath:'/usr/bin/chromium'}),args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-dev-shm-usage']});
 const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 const out=new URL('./review/audio/',import.meta.url);await mkdir(out,{recursive:true});
 if(process.env.VERIFIED_HTTPS_PROXY==='1')await page.route('https://islandplumber.github.io/**',async route=>{
@@ -15,7 +15,7 @@ try{
  await page.waitForFunction(()=>window.raceLab?.ready,null,{timeout:120000});
  assert.equal(await page.evaluate(()=>window.raceLab.audio.state),'locked','no audio context before gesture');
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
- await page.click('#play');await page.waitForFunction(()=>window.raceLab.audio.loaded.length===4&&window.raceLab.audio.state==='running');
+ await page.click('#play');await page.waitForFunction(()=>window.raceLab.audio.loaded.length===5&&window.raceLab.audio.state==='running');
  await page.evaluate(()=>{window.audioParts=[];window.audioRecorder=new MediaRecorder(window.raceLab.captureAudio(),{mimeType:'audio/webm;codecs=opus'});window.audioRecorder.ondataavailable=e=>{if(e.data.size)window.audioParts.push(e.data);};window.audioRecorder.start();});
  const start=await page.evaluate(()=>({time:window.raceLab.time,audio:window.raceLab.audio}));
  assert.equal(start.audio.events.filter(e=>e.id==='shot').length,1);assert.equal(start.audio.events.filter(e=>e.id==='bugle').length,1);

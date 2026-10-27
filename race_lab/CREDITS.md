@@ -29,4 +29,9 @@ The original rider dialogue is not included or retimed in this runtime.
 
 ## Race sounds
 
-Bugle: U.S. Army, [First Call](https://commons.wikimedia.org/wiki/File:FirstCall.mp3), public domain. Crowd bed: eguobyte, [large crowd](https://commons.wikimedia.org/wiki/File:360703_eguobyte_large-crowd-medium-distance-stereo.wav), CC0. Cheering: WebbFilmsUK, [F1 Race Crowd Applause Air Horns](https://commons.wikimedia.org/wiki/File:F1-Race-Crowd-Applause-Air-Horns.wav), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); filtered, cropped, peak-limited, level-adjusted, crossfaded and dynamically mixed. Starter shot: original procedural sound design. No endorsement implied. [Full sound credits and adaptation notes](audio/CREDITS.md).
+Runtime audio uses the U.S. Army bugle, a quiet outdoor audience and short
+applause from stephan, gallop texture credited to Bruno Auzet / Freesound
+Community, and original starter, hoof and comic power sound design. The twelve
+comic launch/impact clips are original CC0-1.0 WAV files, with no sampled rider
+speech or celebrity voice imitation. The old F1 air-horn track is not used.
+[Full sources, licenses and adaptation notes](audio/CREDITS.md).

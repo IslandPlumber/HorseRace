@@ -1,0 +1,54 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import {mkdtemp,mkdir,rm,writeFile} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {Game} from './server/game.js';
+import {createServer} from './server/http.js';
+const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-sound-'));
+const out='review/deployment/audio-v2';await mkdir(out,{recursive:true});
+const game=new Game(path.join(dir,'game.sqlite'),{bettingMs:1000,duration:64});
+const server=createServer(game,{site:path.resolve('site')});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const proxy=http.createServer((req,res)=>{
+ if(!req.url.startsWith('/horserace/')){res.writeHead(404);res.end();return;}
+ const u=http.request({host:'127.0.0.1',port:server.address().port,path:req.url.slice('/horserace'.length),method:req.method,headers:req.headers},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res)});u.on('error',()=>res.end());req.pipe(u);
+});await new Promise(r=>proxy.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const p=await browser.newPage({viewport:{width:390,height:950}}),errors=[];
+p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+try{
+ await p.goto(`http://127.0.0.1:${proxy.address().port}/horserace/`);
+ await p.waitForFunction(()=>window.raceLab?.ready&&document.querySelector('#mp-auth'),null,{timeout:60000});
+ assert.equal(await p.evaluate(()=>window.raceLab.audio.state),'locked');
+ assert.equal(await p.locator('#sound-toggle').textContent(),'Enable sound');
+ await p.locator('#mp-username').fill('AudioTester');await p.locator('#mp-password').fill('temporary-fixture-only');
+ await p.getByRole('button',{name:'Create account',exact:true}).click();await p.locator('#mp-name').filter({hasText:'AudioTester'}).waitFor();
+ await p.waitForFunction(()=>window.raceLab.audio.state==='running'&&window.raceLab.audio.loaded.length===5);
+ assert.equal(await p.evaluate(()=>window.raceLab.audio.muted),false);
+ await p.locator('#mp-create').click();await p.locator('#mp-start').waitFor();await p.locator('#mp-start').click();
+ await p.waitForFunction(()=>window.raceLab.audio.playing&&window.raceLab.state==='playing',null,{timeout:20000});
+ await p.evaluate(()=>{window.parts=[];window.recorder=new MediaRecorder(window.raceLab.captureAudio(),{mimeType:'audio/webm;codecs=opus'});window.recorder.ondataavailable=e=>{if(e.data.size)window.parts.push(e.data)};window.recorder.start();});
+ await p.selectOption('#camera-mode','rail');
+ await p.locator('#crowd-volume').evaluate(el=>{el.value=0;el.dispatchEvent(new Event('input',{bubbles:true}))});
+ assert.equal(await p.evaluate(()=>window.raceLab.audio.crowdVolume),0);
+ assert.equal(await p.evaluate(()=>window.raceLab.audio.volume),.65);
+ await p.waitForFunction(()=>window.raceLab.time>window.raceLab.race.startDelay+.5&&window.raceLab.audio.hoofGain>.05,null,{timeout:16000});
+ const active=await p.evaluate(()=>window.raceLab.audio);
+ assert.equal(active.events.filter(e=>e.id==='shot').length,1);
+ assert.equal(active.events.filter(e=>e.id==='bugle').length,1);
+ const bytes=await p.evaluate(async()=>{await new Promise(r=>setTimeout(r,1000));await new Promise(r=>{window.recorder.onstop=r;window.recorder.stop()});return Array.from(new Uint8Array(await new Blob(window.parts).arrayBuffer()))});
+ await writeFile(`${out}/actual-browser-audio.webm`,Buffer.from(bytes));
+ await p.locator('#sound-toggle').click();assert.equal(await p.evaluate(()=>window.raceLab.audio.muted),true);
+ await p.locator('#sound-toggle').click();assert.equal(await p.evaluate(()=>window.raceLab.audio.muted),false);
+ await p.reload();await p.waitForFunction(()=>window.raceLab?.ready&&document.querySelector('#mp-name')?.textContent==='AudioTester');
+ assert.equal(await p.evaluate(()=>window.raceLab.audio.crowdVolume),0);
+ assert.equal(await p.locator('#sound-toggle').textContent(),'Enable sound');
+ await p.locator('#sound-toggle').click();
+ await p.waitForFunction(()=>window.raceLab.audio.state==='running'&&!window.raceLab.audio.muted&&window.raceLab.audio.playing);
+ assert.equal(await p.evaluate(()=>window.raceLab.audio.events.filter(e=>e.id==='shot').length),0,'late sound enable must not replay the starter shot');
+ assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ assert.deepEqual(errors,[]);
+ await writeFile(`${out}/report.json`,JSON.stringify({verifiedAt:new Date().toISOString(),checks:['sound initially locked and honestly labelled','registration gesture arms audio without muting','live race automatically starts sound','real bugle shot and galloping output recorded','crowd slider zero leaves race audio intact','one starter shot only','mute and unmute work','crowd preference survives reload','first sound click after reload enables without muting','late enable does not replay starter','phone layout fits'],active},null,2)+'\n');
+ console.log('Live sound activation, independent crowd level and browser recording passed.');
+}finally{await browser.close();await new Promise(r=>proxy.close(r));await new Promise(r=>server.close(r));game.close();await rm(dir,{recursive:true,force:true})}

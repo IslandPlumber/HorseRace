@@ -6,10 +6,10 @@ import path from "node:path";
 const stage = await mkdtemp(path.join(os.tmpdir(), "horserace-release-"));
 try {
   await mkdir("review/multiplayer", { recursive: true });
-  for (const file of ["site", "race-core.js", "track.js", "deploy"])
+  for (const file of ["site", "race-core.js", "track.js", "betting.js", "powers.js", "progression.js", "TRAINING.md", "BETTING.md", "POWERS.md", "PROGRESSION.md", "deploy"])
     await cp(file, path.join(stage, file), { recursive: true });
   await mkdir(path.join(stage, "server"));
-  for (const file of ["game.js", "http.js", "start.js"])
+  for (const file of ["game.js", "http.js", "start.js", "race-simulation.js"])
     await cp("server/" + file, path.join(stage, "server", file));
   await writeFile(
     path.join(stage, "package.json"),

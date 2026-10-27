@@ -1,0 +1,91 @@
+{
+  "author": "Original HorseRace sound design",
+  "license": "CC0-1.0",
+  "sampleRate": 22050,
+  "clips": [
+    {
+      "key": "hat-launch",
+      "seconds": 1.0500226757369615,
+      "peak": 0.78,
+      "rms": 0.31225307818648573,
+      "sha256": "98db2c0714fd2d0b89caf6ef0f6aac475d9d5ae8aca9a09c0ea67b0f06a892a0"
+    },
+    {
+      "key": "hat-hit",
+      "seconds": 1.0500226757369615,
+      "peak": 0.78,
+      "rms": 0.18410740830304007,
+      "sha256": "f86adc292ac05d09f1fde6d28a01709ff86f1f522b7ecd00ec326a210c5e3f7d"
+    },
+    {
+      "key": "rocket-launch",
+      "seconds": 1.5500226757369615,
+      "peak": 0.78,
+      "rms": 0.21929245273924494,
+      "sha256": "934c49efad9e34d59d1f1ee97b331d1e995f9d452cadac886cba8a0ee3f4834c"
+    },
+    {
+      "key": "icecream-launch",
+      "seconds": 1.4,
+      "peak": 0.78,
+      "rms": 0.35648567792649866,
+      "sha256": "803b655839325db1b119abb8c7a03488a07fc65e62a5e1181f2c4e29f585f00f"
+    },
+    {
+      "key": "filibuster-launch",
+      "seconds": 1.0500226757369615,
+      "peak": 0.78,
+      "rms": 0.3019868216906703,
+      "sha256": "eda1e3adb98555d91b16907e778ef26eb744029b4c8c5337d1ceeeb5394c1e19"
+    },
+    {
+      "key": "filibuster-hit",
+      "seconds": 1.6500226757369614,
+      "peak": 0.78,
+      "rms": 0.3457886016324543,
+      "sha256": "2bffb7873f23116e9f9ea3901d5aaf68970880a983ddfa174a263fcd87565498"
+    },
+    {
+      "key": "mittens-launch",
+      "seconds": 1.0500226757369615,
+      "peak": 0.78,
+      "rms": 0.2811075005645966,
+      "sha256": "4a81431aa7101cbcfd9cac6ba148b3826ae326e5ded512b353e1a927bea50371"
+    },
+    {
+      "key": "mittens-hit",
+      "seconds": 1.0500226757369615,
+      "peak": 0.78,
+      "rms": 0.247468593457329,
+      "sha256": "45ffc37a09bffe2619a6f9d3f77c5d3a2e75ec2f75922a2cef3c91cb6e955d8d"
+    },
+    {
+      "key": "kitchen-launch",
+      "seconds": 1.0500226757369615,
+      "peak": 0.78,
+      "rms": 0.2246951551188801,
+      "sha256": "f4275bc5f69e5d07b20eaa5a52904c7997918f0e400ac9d4e008a8346569fcdc"
+    },
+    {
+      "key": "kitchen-hit",
+      "seconds": 1.3500226757369616,
+      "peak": 0.78,
+      "rms": 0.12457924809383267,
+      "sha256": "21d6b46b534ae93c37c14dc154b0f8a996b4d8da6b04bbc1d260a2d3cdcf98b7"
+    },
+    {
+      "key": "chill-launch",
+      "seconds": 1.4,
+      "peak": 0.78,
+      "rms": 0.3446084750968315,
+      "sha256": "e7fd3aeeb6130f9e72ff1d733ac9b1d735eddf10af82ac3e24ef29e79415c7a5"
+    },
+    {
+      "key": "chill-hit",
+      "seconds": 1.0500226757369615,
+      "peak": 0.78,
+      "rms": 0.24978197878677472,
+      "sha256": "445992dfc0051689f599e0579609c7a8316d4eee315c42879b8e77b8ee37d8a7"
+    }
+  ]
+}

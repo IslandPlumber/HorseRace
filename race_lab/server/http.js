@@ -9,8 +9,10 @@ const MIME = {
   ".json": "application/json",
   ".glb": "model/gltf-binary",
   ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
   ".md": "text/plain; charset=utf-8",
   ".png": "image/png",
+  ".svg": "image/svg+xml",
 };
 export function createServer(
   game,
@@ -119,21 +121,32 @@ export function createServer(
             result = game.me(id);
             break;
           case "POST /api/upgrades":
-            game.upgrade(id, body.kind);
+            game.upgrade(id, body.kind, body.level);
             result = game.me(id);
             break;
           case "GET /api/ledger":
             result = { entries: game.ledger(id) };
             break;
+          case "GET /api/history":
+            result = { history: game.history(id,{betsOnly:url.searchParams.get("betsOnly")==="1"}) };
+            break;
           case "GET /api/rooms":
-            result = { rooms: game.rooms() };
+            result = { rooms: game.rooms(), online: game.onlineCount() };
+            break;
+          case "POST /api/arrival":
+            game.arrive(id);
+            result=game.me(id);
+            break;
+          case "POST /api/rooms/main":
+            game.arrive(id,{switchRoom:true});
+            result=game.me(id);
             break;
           case "POST /api/rooms":
             result = { code: game.create(id) };
             break;
           default: {
             const match = url.pathname.match(
-              /^\/api\/rooms\/([A-Fa-f0-9]{6})(?:\/(join|leave|start|bets))?$/,
+              /^\/api\/rooms\/([A-Fa-f0-9]{6})(?:\/(join|leave|start|bets|power))?$/,
             );
             if (!match) throw new GameError("Not found.", 404);
             const code = match[1].toUpperCase(),
@@ -141,13 +154,14 @@ export function createServer(
             if (req.method === "GET" && !action)
               result = { room: game.room(id, code) };
             else if (req.method === "POST" && action) {
-              if (action === "join") game.join(id, code);
+              if (action === "join") game.join(id, code, body.horse);
               else if (action === "leave") {
                 requireMembership();
                 game.leave(id);
               } else if (action === "start") game.start(id, code);
-              else game.bet(id, code, body.horse, body.stake);
-              result = { code };
+              else if(action==="power")game.power(id,code,body.raceId,body.requestId,body.policyVersion);
+              else game.bet(id, code, body.horse, body.stake, body.kind);
+              result = action==="power"?{code,room:game.room(id,code),user:game.profile(id)}:{code};
             } else throw new GameError("Not found.", 404);
             function requireMembership() {
               if (game.membership(id) !== code)
@@ -189,7 +203,7 @@ export function createServer(
           ? "no-cache"
           : "public, max-age=3600",
         "Content-Security-Policy":
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
       });
       res.end(req.method === "HEAD" ? undefined : await readFile(file));
     } catch (error) {

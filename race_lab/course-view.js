@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import {trackPoint,circuitLength} from './track.js';
+import {parkScenery} from './park-scenery.js';
 const smooth=u=>{u=THREE.MathUtils.clamp(u,0,1);return u*u*(3-2*u);};
 export function createCourse(race,parent) {
  const t=race.track,n=race.cast.length,width=n*t.laneWidth+2,perimeter=circuitLength(t);
  const group=new THREE.Group();parent.add(group);
+ const scenery=parkScenery(race,group);
  const mats={dirt:new THREE.MeshStandardMaterial({color:0xb89a6d,roughness:1}),rail:new THREE.MeshStandardMaterial({color:0xf3ead6}),dark:new THREE.MeshStandardMaterial({color:0x263e34}),gold:new THREE.MeshStandardMaterial({color:0xd8b969}),white:new THREE.MeshStandardMaterial({color:0xfaf1da})};
  const mesh=(geo,mat,x=0,y=0,z=0,p=group)=>{const o=new THREE.Mesh(geo,mat);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;p.add(o);return o;};
  const box=(x,y,z,mat,px,py,pz,p=group)=>mesh(new THREE.BoxGeometry(x,y,z),mat,px,py,pz,p);
@@ -24,7 +26,6 @@ export function createCourse(race,parent) {
  // Green infield, a small reflecting pond and track-side planting.
  const pond=mesh(new THREE.CircleGeometry(1,48),new THREE.MeshStandardMaterial({color:0x477f86,roughness:.25}),-13,.012,-3);pond.rotation.x=-Math.PI/2;pond.scale.set(19,8,1);
  label('STREAKCHAT PARK',12,2,0,24);
- for(let i=0;i<24;i++){const a=i*Math.PI*2/24;const x=Math.cos(a)*(t.straight/2+t.radius+width/2+17),z=Math.sin(a)*(t.shortStraight/2+t.radius+width/2+22);mesh(new THREE.CylinderGeometry(.2,.3,2,5),new THREE.MeshStandardMaterial({color:0x6f5840}),x,1,z);mesh(new THREE.ConeGeometry(2,6,6),new THREE.MeshStandardMaterial({color:i%2?0x315e43:0x467447}),x,4.5,z);}
  // Low grandstand overlooking the home straight: terraced benches and canopy.
  const standZ=t.shortStraight/2+t.radius+width/2+12;
  for(let row=0;row<6;row++){box(64,.45,2.7,new THREE.MeshStandardMaterial({color:row%2?0x49665c:0x5e776b}),-5,.6+row*.7,standZ+row*2.5);}
@@ -58,5 +59,5 @@ export function createCourse(race,parent) {
   }
   const plate=label(String(lane+1),0,0,0,1.2);group.remove(plate);gate.add(plate);plate.position.set(2.6,4.2,z);
  }
- return {group,gate,doors,finish,update(time){const delay=race.startDelay??0;const open=smooth((time-(delay-.5))/.5);for(const {hinge,edge} of doors)hinge.rotation.y=edge*open*Math.PI/2;const retract=smooth((time-delay-3)/2);finishSign.visible=retract>=1;gate.position.set(start.x-Math.sin(start.heading)*retract*(width+12),0,start.z+Math.cos(start.heading)*retract*(width+12));gate.visible=retract<1;},finishSign};
+ return {group,gate,doors,finish,update(time,sample){scenery.update(time,sample);const delay=race.startDelay??0;const open=smooth((time-(delay-.5))/.5);for(const {hinge,edge} of doors)hinge.rotation.y=edge*open*Math.PI/2;const retract=smooth((time-delay-3)/2);finishSign.visible=retract>=1;gate.position.set(start.x-Math.sin(start.heading)*retract*(width+12),0,start.z+Math.cos(start.heading)*retract*(width+12));gate.visible=retract<1;},finishSign};
 }

@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {generateRace} from './race-core.js';import {buildAudioPlan,crowdProfile,cueSchedule} from './audio-plan.js';
+import {generateRace} from './race-core.js';import {buildAudioPlan,crowdProfile,cueSchedule,cheerSchedule} from './audio-plan.js';
 const race=generateRace(731),plan=buildAudioPlan(race);
 test('full bugle finishes before gate release; exactly one shot is scheduled there',()=>{
  assert.equal(plan.delay,7);const cues=cueSchedule(plan,0,6.34);assert.equal(cues.length,2);
@@ -21,4 +21,13 @@ test('crowd reacts to genuine lead changes and builds for home/finish',()=>{
 test('crowd state is deterministic and independent of seeking history',()=>{
  const a=crowdProfile(race,plan,22);crowdProfile(race,plan,race.duration);assert.deepEqual(crowdProfile(race,plan,22),a);
  for(let t=0;t<race.duration;t+=.1){const s=crowdProfile(race,plan,t);assert.ok(s.cheer>=0&&s.cheer<=.95);assert.ok(s.ambience>=0&&s.ambience<1);}
+});
+
+test('crowd reactions are short cues and resume offsets without a continuous cheer loop',()=>{
+ const cues=cheerSchedule(plan,0,4);assert.ok(cues.length>=2);
+ assert.ok(cues.every(c=>c.duration<=4&&c.after>=plan.delay));
+ const finish=cues.find(c=>c.kind==='finish');assert.equal(finish.time,plan.finish);
+ const resumed=cheerSchedule(plan,plan.finish+1,4).find(c=>c.kind==='finish');
+ assert.equal(resumed.offset,1);assert.equal(resumed.after,0);assert.equal(resumed.duration,3);
+ assert.deepEqual(cheerSchedule(plan,plan.finish+4,4),[]);
 });
