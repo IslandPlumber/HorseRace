@@ -263,6 +263,11 @@ async function loadRace(definition, options = {}) {
     $('stage-badge').textContent = `${race.cast.length} racers · ${Math.round(race.track.length)} m · ${race.track.type==='circuit'?'4 turns':'straight'}`;
     $('race-id').textContent = race.live ? `${race.id} · shared live race` : `${race.id} · seed ${race.seed ?? '—'}`;
     $('race-note').textContent = 'Race prepared. Press play or scrub the timeline.';
+    // Track rebuilds replace materials too: warm the whole current scene before
+    // releasing the loading screen, including hidden effects and scenery.
+    displayFrame(true,true);renderer.render(scene,camera);
+    await renderer.compileAsync(scene,camera);
+    powerView.prewarm(renderer,scene,camera);
     setBusy(false);
     displayFrame(true);
     return true;
@@ -368,8 +373,8 @@ function renderStandings(sample) {
     $('result-note').textContent = `${count} of ${sample.runners.length} across the line · ${multiplayer?.managed?'server race':'scripted outcome'}`;
   }
 }
-function displayFrame(snapCamera = false) {
-  if (!race || loading) return;
+function displayFrame(snapCamera = false,preparing = false) {
+  if (!race || loading&&!preparing) return;
   needsRender=true;
   const sample = sampleRace(race, time);
   const actorMap = new Map(visibleActors.map((actor) => [actor.id, actor]));
@@ -540,7 +545,7 @@ window.raceLab = {
   get time() { return time; },
   get ready() { return Boolean(race && !loading); },
   get actorCount() { return visibleActors.length; },
-  get renderDiagnostics(){return {trackBuilds,liveUpdates,actorInstances:visibleActors.map(a=>a.group.uuid),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,ownMarker:ownMarker.visible};},
+  get renderDiagnostics(){return {trackBuilds,liveUpdates,actorInstances:visibleActors.map(a=>a.group.uuid),programs:renderer.info.programs.length,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,ownMarker:ownMarker.visible};},
   get assetCount() { return assetPromises.size; },
   get textureDiagnostics(){return visibleActors.map(actor=>{const textures=new Map();actor.model.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.map)textures.set(m.map.uuid,{name:m.name,width:m.map.image?.width??0,height:m.map.image?.height??0});});return {id:actor.id,textures:[...textures.values()]};});},
   get viewDiagnostics(){return visibleActors.map(actor=>{let head;actor.model.traverse(o=>{if(/head[ _]hinge/.test(o.name))head=o;});actor.group.updateMatrixWorld(true);const v=(head??actor.puppet??actor.group).getWorldPosition(new THREE.Vector3());const projected=v.clone().project(camera);return {id:actor.id,headHeight:v.y,screen:projected.toArray(),puppet:actor.puppet?.quaternion.toArray()};});},

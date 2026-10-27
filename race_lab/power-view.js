@@ -76,6 +76,14 @@ export class PowerView {
       this.spectacles.set(id,{group:flair,wave,trail});
     }
   }
+  prewarm(renderer,scene,camera){
+    const saved=[];
+    this.root.traverse(o=>{saved.push([o,o.visible,o.frustumCulled]);o.visible=true;o.frustumCulled=false;});
+    try{renderer.render(scene,camera);}finally{
+      for(const [o,visible,culled] of saved){o.visible=visible;o.frustumCulled=culled;}
+      renderer.render(scene,camera);
+    }
+  }
   update(race, sample, time) {
     const events=powerEvents(race), byId=new Map(sample.runners.map(r=>[r.id,r]));
     const impact=events.filter(e=>e.impact&&e.targets.some(id=>!byId.get(id)?.finished)&&time>=e.hitTime&&time<e.hitTime+1.2).at(-1);

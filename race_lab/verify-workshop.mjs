@@ -44,7 +44,7 @@ try{
  for(const kind of Object.keys(UPGRADES).filter(kind=>kind!=='powerReserve'))await buy(v,kind);
  await buy(v,'mastery');
  assert.equal(Object.keys((await api(v,'/api/me')).data.user.upgrades).length,20);
- await v.locator('[data-group=power]').click();assert.match(await v.locator('[data-upgrade=powerReserve]').textContent(),/two moves per race/);assert.ok(await v.locator('[data-upgrade=powerReserve] button').isDisabled());
+ await v.locator('[data-group=power]').click();assert.match(await v.locator('[data-upgrade=powerReserve]').textContent(),/50 coins per use/);assert.ok(await v.locator('[data-upgrade=powerReserve] button').isDisabled());
  await v.locator('#mp-upgrades-panel').screenshot({path:`${out}/power-reserve.png`});await v.locator('[data-group=stable]').click();await v.locator('#mp-upgrades-panel').screenshot({path:`${out}/mastery.png`});
  await b.reload();await b.locator('#mp-name').filter({hasText:'WorkshopBobby'}).waitFor();await b.locator('#mp-open-workshop').click();await b.locator('[data-group=tack]').click();assert.match(await b.locator('[data-upgrade=saddle] .workshop-level').textContent(),/Level 1/);
  report.checks.push('20 paths in four accessible categories; exact UI purchases, stale rejection, all paths purchased, reserve capped, repeatable mastery and phone reload');
@@ -54,7 +54,7 @@ try{
  await a.locator('#mp-start').click();await a.locator('#race-betting-banner[data-state=open]').waitFor();
  await a.locator('#mp-tab-upgrades').click();for(const group of['horse','tack','power','stable']){await a.locator(`[data-group=${group}]`).click();for(const button of await a.locator('.workshop-card button').all())assert.ok(await button.isDisabled());}
  assert.equal((await api(a,'/api/upgrades',{kind:'stride',level:0})).status,400);await a.locator('#race-place-bet').click();assert.equal(await a.locator('#mp-tab-live').getAttribute('aria-selected'),'true');
- await a.locator('.racer-builds summary').click();assert.match(await a.locator('#mp-racer-builds').textContent(),/two player-triggered powers/);
+ await a.locator('.racer-builds summary').click();assert.match(await a.locator('#mp-racer-builds').textContent(),/Power budget 5/);
  const before=[];for(const p of[a,b,v])before.push((await api(p,'/api/me')).data.user);
  for(const p of[a,b])for(const kind of['win','place','show']){await p.selectOption('#mp-bet-kind',kind);await p.locator('#mp-stake').fill('10');await p.getByRole('button',{name:'Place bet',exact:true}).click();await p.locator(`#mp-bet-note [data-bet-kind=${kind}]`).waitFor();}
  offset+=40000;game.tick();await Promise.all([a,b,v].map(p=>p.waitForFunction(()=>window.raceLab.race.simulation?.model==='skills-v7-live'&&window.raceLab.multiplayer.managed)));

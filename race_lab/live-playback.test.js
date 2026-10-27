@@ -51,3 +51,10 @@ test('completed races finish on their real confirmed boundary',()=>{
  for(let i=0;i<240;i++){now+=1000/60;clock.frame();}
  assert.equal(clock.time,12.2);assert.equal(clock.underruns,0);
 });
+test('initial loading fills the buffer and aligns the first visible clock to confirmed time',()=>{
+ let now=0;const clock=new LivePlaybackClock({now:()=>now});
+ clock.observe({id:'loading-race',starts:0,definition:{live:true,availableTime:.1,completed:false}},{serverTime:100,requestMs:40});
+ now=500;assert.equal(clock.frame(),0);assert.equal(clock.priming,true);
+ now=2500;clock.observe({id:'loading-race',starts:0,definition:{live:true,availableTime:2.5,completed:false}},{serverTime:2500,requestMs:40});
+ const first=clock.frame();assert.ok(first>1.3&&first<1.5);assert.ok(first<=clock.head);assert.equal(clock.priming,false);
+});

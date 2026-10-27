@@ -37,6 +37,8 @@ export class LivePlaybackClock {
     if(this.priming){
       if(this.head<this.delay&&!this.completed)return this.time;
       this.priming=false;
+      this.time=Math.max(this.time,Math.min(this.head,this.serverAt+Math.max(0,(at-this.serverAnchor)/1000)-this.delay));
+      return this.time;
     }
     const estimated=this.serverAt+Math.max(0,(at-this.serverAnchor)/1000);
     const desired=Math.max(0,Math.min(this.head,estimated-this.delay));
