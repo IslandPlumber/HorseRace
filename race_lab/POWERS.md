@@ -1,39 +1,53 @@
 # Rider powers
 
-New club races use `skills-v7-live`. Players choose when to use their signature
-move after the gates open. Use the ability button beside the race, or its shown
-keyboard shortcut. A move affects motion from its activation onward and can
-change the finishing order of a race already in progress. Unused moves are not
-fired automatically for a human player. CPU riders still choose their moves
-automatically.
+New club races use `skills-v8-specials`: **one player-controlled special per rider
+per race**, costing **75 free game coins** on an accepted launch. The button shows
+the exact cost before a click or F. A missed attack still costs coins; rejected,
+early, late, unaffordable or duplicate requests never charge. A stale browser
+must reload the priced controls before it can activate a paid power.
 
-Every rider starts with one charge. Reserve level 5 unlocks a second charge at
-65% strength, available after the first move's recovery window. Both charges
-are player-controlled. Power training improves strength, duration, reach and
-control; tack can soften hits and shorten recovery. See
-[PROGRESSION.md](PROGRESSION.md). Abilities do not cost coins to activate.
+Power budget (the existing reserve path) keeps every purchased level: each rank
+extends the self boost by 4% and reduces activation cost by 5 coins, reaching
+50 coins at level 5. It no longer adds a second use in new races. Prices, purchased
+levels and the rest of the workshop remain saved. Cost and one-use policy freeze
+when betting opens; old v7 rounds retain their original free reserve behavior.
 
-The server checks ownership, charges and race time, and saves each accepted
-activation. Requests cannot choose a target, seed, timestamp or winner. Repeated
-requests for the same action cannot spend another charge. Movement already
-shown is preserved; future movement responds to the new action. Browsers receive
-only confirmed motion and past events while a race is live, with a short shared
-playback buffer. Future progress, the secret seed and the projected outcome are
-not sent to players. The final replay and settlement use the actual crossings.
-Restarting the service keeps accepted moves and does not reroll the race.
-Saved older races retain their original automatic moves, results and returns.
+The much stronger single moves use faster acceleration, longer boosts, heavier
+hits and wider area reach. Untrained rocket boost is 65% for 6.5 simulation
+seconds; the pan jolts speed by 80% then slows target pace by 72% for 5.5 seconds.
+Focus and tack still soften hits. Combined boosts cap at 85%, slowing at 75%,
+heavy jolts at 88%; strongest-heavy-hit and jolt-cooldown protections remain.
+The common simulation clock converts durations to playback time.
+
+The server owns activation time, targets, funds and the frozen fee. Debit ledger,
+accepted action and changed future movement commit together. Safe retries keep
+the same request ID, including after restart, and never spend again. Fees appear
+in current and saved slips and in round totals. CPU fillers use one automatic
+move each; they have no player wallet.
+
+Only future movement can change. Past progress, the private seed, snapshots,
+accepted inputs and actual crossings retain the causal/restart guarantees of the
+live engine. Public clients never receive a future result. Existing v6/v7 race
+physics, uses, prices and outcomes are preserved.
+
+Each special launches a 2.4× prop, colored instanced trails and expanding
+shockwaves, with a large announcement. Hits have larger stars and stronger rider
+reactions; the camera stays under the player's control. Effects use fixed pools
+and absolute race time, clear on rewind, and add no per-frame geometry.
+
+## Signature moves
 
 | Rider | Power | What happens |
 | --- | --- | --- |
 | Trump | Hat Trick | Spinning red hats distract up to three nearby rivals; Trump gets a small surge. |
-| Elon | Totally Normal Rocket | A tiny saddle rocket gives a short solo speed boost. |
+| Elon | Totally Normal Rocket | A roaring saddle rocket gives a substantial sustained speed boost. |
 | Biden | Ice Cream Express | An ice-cream cone provides a very motivating target for a sprint. |
 | McConnell | Filibuster the Front-runner | Express paperwork jolts the leader, then slows their pace for several seconds. |
 | Bernie | Mittens for the Many | Bernie surges and shares a smaller boost with the racer running last, if that is someone else. |
 | Gordon | Where’s the Gallop?! | A homing pan sharply knocks the leader out of stride and leaves them seeing stars. |
 | Snoop | Chill Out, Neigh-bor | A mellow musical cloud briefly slows up to three nearby rivals. |
 
-Trump and Snoop attack up to three rivals within 16 metres at activation,
+Trump and Snoop attack up to three rivals within 26 metres in new races at activation,
 across real course positions and lanes. If the pack has escaped, their attacks
 miss; the owners still get their small boost. McConnell and Gordon instead
 lock onto whoever is leading at activation, regardless of distance. Targets
@@ -48,7 +62,9 @@ and the server accepting a click. Targets must still be racing.
 Impacts follow a short visible throw. Targets and the most recent four moves
 appear in the race feed; ready/active/used and slowed states appear in live order.
 
-Boosts last roughly 2-3 seconds on the standard playback clock; area attacks
+## Earlier tuning for saved v6/v7 rounds
+
+Older v6/v7 boosts last roughly 2-3 seconds on the standard playback clock; area attacks
 roughly 1-2 seconds. Heavy leader hits are deliberately stronger: Gordon knocks
 current velocity down 60% and reduces target pace 55% for 3.4 simulation seconds;
 McConnell knocks velocity down 40% and reduces target pace 45% for 4.2 simulation
@@ -59,8 +75,10 @@ from an attack.
 
 Heavy slowdowns take the strongest active penalty, never their sum. Area slows
 still cap at 24%; overall slowing caps at 60%. A 2.4-simulation-second jolt cooldown
-protects a victim from repeated immediate velocity drops. Combined boosts still
+protects a victim from repeated immediate velocity drops. Older combined boosts still
 cap at 28%. Existing races retain their saved motion and original lighter effects.
+
+## Replay and sound
 
 A hit displays a wobble, orbiting stars, a BONK/BLAH BLAH label and a prominent
 impact notice. The reactions use absolute race time and reset when seeking.

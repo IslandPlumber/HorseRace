@@ -10,6 +10,7 @@ import { ACTOR_IDS } from "../race-core.js";
 import { simulateRace, simulateLiveRace, publicLiveRace, nextLiveActivationTime, raceFinishedAt, LIVE_POWER_COOLDOWN } from "./race-simulation.js";
 import { BET_TYPES, ticketReturn } from "../betting.js";
 import {UPGRADES,upgradeCost,finishPrize} from '../progression.js';
+import {SPECIAL_POWER_POLICY,specialPowerCost,SPECIAL_POWERS} from '../powers.js';
 export const RULES = {
   startingCoins: 1000,
   prizes: [200, 140, 100, 75, 50, 35, 25],
@@ -21,6 +22,7 @@ export const RULES = {
   upgrades: { speed: 120, stamina: 100, focus: 90 },
   maxLevel: 5,
   workshop: UPGRADES,
+  specialPower: SPECIAL_POWER_POLICY,
 };
 export class GameError extends Error {
   constructor(message, status = 400) {
@@ -35,11 +37,12 @@ const hashToken = (t) => createHash("sha256").update(t).digest("hex");
 export class Game {
   constructor(
     file,
-    { clock = Date.now, bettingMs = 30000, duration = 64 } = {},
+    { clock = Date.now, bettingMs = 30000, duration = 64, specials = true } = {},
   ) {
     this.clock = clock;
     this.bettingMs = bettingMs;
     this.duration = duration;
+    this.specials = specials;
     this.presence = new Map();
     this.startedAt = this.clock();
     this.db = new DatabaseSync(file);
@@ -55,7 +58,8 @@ export class Game {
    CREATE TABLE IF NOT EXISTS ledger(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), delta INTEGER NOT NULL, reason TEXT NOT NULL, race_id TEXT, created INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS race_bets(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), race_id TEXT NOT NULL REFERENCES races(id), horse TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('win','place','show')), stake INTEGER NOT NULL CHECK(typeof(stake)='integer' AND stake BETWEEN 10 AND 500), return_units INTEGER NOT NULL CHECK(return_units>=100), payout INTEGER CHECK(payout IS NULL OR (typeof(payout)='integer' AND payout>=0)), UNIQUE(user_id,race_id,kind));
    CREATE TABLE IF NOT EXISTS live_races(race_id TEXT PRIMARY KEY REFERENCES races(id),seed TEXT NOT NULL,duration REAL NOT NULL,revision INTEGER NOT NULL DEFAULT 0);
-   CREATE TABLE IF NOT EXISTS race_power_uses(request_id TEXT PRIMARY KEY,race_id TEXT NOT NULL REFERENCES races(id),user_id TEXT NOT NULL REFERENCES users(id),actor TEXT NOT NULL,time REAL NOT NULL,charge INTEGER NOT NULL,created INTEGER NOT NULL,UNIQUE(race_id,user_id,charge));`);
+   CREATE TABLE IF NOT EXISTS race_power_uses(request_id TEXT PRIMARY KEY,race_id TEXT NOT NULL REFERENCES races(id),user_id TEXT NOT NULL REFERENCES users(id),actor TEXT NOT NULL,time REAL NOT NULL,charge INTEGER NOT NULL,created INTEGER NOT NULL,UNIQUE(race_id,user_id,charge));
+   CREATE TABLE IF NOT EXISTS race_power_rules(race_id TEXT PRIMARY KEY REFERENCES races(id),rules TEXT NOT NULL);`);
   }
   one(sql, ...p) {
     return this.db.prepare(sql).get(...p);
@@ -413,6 +417,7 @@ export class Game {
       // New rounds opt into live controls explicitly. Older in-flight rounds
       // retain their original engine and saved outcome across this migration.
       this.run("INSERT INTO live_races(race_id,seed,duration) VALUES(?,?,?)",raceId,randomBytes(16).toString("hex"),this.duration);
+      if(this.specials)this.run('INSERT INTO race_power_rules VALUES(?,?)',raceId,JSON.stringify({...SPECIAL_POWER_POLICY,costs:Object.fromEntries(entrants.filter(e=>e.userId).map(e=>[e.horse,specialPowerCost(e.upgrades)]))}));
       return raceId;
     });
   }
@@ -472,6 +477,7 @@ export class Game {
       duration: live?.duration??(r.ends - r.starts) / 1000,
       title: `Room ${r.code} · Race ${r.number}`,
       ...(live?{activations:[]}:{}),
+      specials:Boolean(this.powerRules(r.id)),
     });
     def.id = r.id;
     this.run(
@@ -485,12 +491,15 @@ export class Game {
   powerUses(raceId) {
     return this.all("SELECT * FROM race_power_uses WHERE race_id=? ORDER BY time,actor,charge",raceId);
   }
+  powerRules(raceId){const row=this.one('SELECT rules FROM race_power_rules WHERE race_id=?',raceId);return row?JSON.parse(row.rules):null;}
+  powerSpent(id,raceId){return Math.max(0,-(this.one('SELECT delta FROM ledger WHERE id=?',`power:${raceId}:${id}`)?.delta??0));}
   powerStatus(id,r,def,live) {
     const entrant=JSON.parse(r.entrants).find(e=>e.userId===id);
     if(!entrant)return {actor:null,charges:0,used:0,remaining:0,available:false,reason:"spectator",readyAt:null};
-    const charges=(entrant.upgrades?.powerReserve??0)>=5?2:1;
+    const policy=this.powerRules(r.id),cost=policy?.costs?.[entrant.horse]??0;
+    const charges=policy?1:(entrant.upgrades?.powerReserve??0)>=5?2:1;
     const uses=live?this.powerUses(r.id).filter(e=>e.user_id===id):[];
-    const state={actor:entrant.horse,charges,used:uses.length,remaining:Math.max(0,charges-uses.length),available:false,reason:"legacy",readyAt:null};
+    const state={actor:entrant.horse,charges,used:uses.length,remaining:Math.max(0,charges-uses.length),available:false,reason:"legacy",readyAt:null,cost,paid:this.powerSpent(id,r.id),paidSpecial:Boolean(policy)};
     if(!live)return state;
     if(r.phase==="betting")return {...state,reason:"betting",readyAt:r.starts};
     if(r.phase==="results")return {...state,reason:"finished"};
@@ -501,12 +510,13 @@ export class Game {
     if(finished)return {...state,reason:"finished"};
     if(elapsed<def.startDelay)return {...state,reason:"gates",readyAt:r.starts+def.startDelay*1000};
     if(!state.remaining)return {...state,reason:"spent"};
+    if(cost>this.profile(id).coins)return {...state,reason:'coins'};
     const latest=uses.at(-1),event=latest&&def.events.find(e=>e.actor===entrant.horse&&e.charge===latest.charge);
     const readyAt=event?r.starts+(event.time+Math.max(event.duration,LIVE_POWER_COOLDOWN))*1000:null;
     if(readyAt!==null&&this.clock()<readyAt)return {...state,reason:"cooldown",readyAt};
     return {...state,available:true,reason:"ready",readyAt};
   }
-  power(id,code,raceId,requestId) {
+  power(id,code,raceId,requestId,policyVersion) {
     requireThat(typeof requestId==="string"&&/^[a-zA-Z0-9_-]{8,100}$/.test(requestId),"Refresh the page before using your ability.");
     // Advance using the server clock before deciding whether a race is still
     // open. A client can never supply an earlier activation time or an actor.
@@ -521,18 +531,20 @@ export class Game {
         return {duplicate:true,charge:previous.charge,time:previous.time};
       }
       const live=this.one("SELECT * FROM live_races WHERE race_id=?",r.id);
+      requireThat(!this.powerRules(r.id)||policyVersion===1,'Refresh the game to load the paid special-power controls before using a power.',409);
       const def=r.definition?JSON.parse(r.definition):null;
       const state=this.powerStatus(id,r,def,live);
-      const reasons={spectator:"You are watching this race. Your ability is available when you enter the next race.",legacy:"This race uses the earlier automatic abilities. Your controls will be ready next race.",betting:"Wait for the race to start before using your ability.",gates:"Wait for the starting gate to open.",cooldown:"Your ability is still active. Wait for it to finish before using your reserve.",spent:"You have used every ability charge for this race.",finished:"Your horse has finished this race."};
+      const reasons={coins:`You need ${state.cost} coins to use this power.`,spectator:"You are watching this race. Your ability is available when you enter the next race.",legacy:"This race uses the earlier automatic abilities. Your controls will be ready next race.",betting:"Wait for the race to start before using your ability.",gates:"Wait for the starting gate to open.",cooldown:"Your ability is still active. Wait for it to finish before using your reserve.",spent:"You have used every ability charge for this race.",finished:"Your horse has finished this race."};
       requireThat(state.available,reasons[state.reason]??"Your ability is not ready.",409);
       const time=nextLiveActivationTime(def,(this.clock()-r.starts)/1000);
       const uses=this.powerUses(r.id),charge=state.used+1;
       const next=simulateLiveRace(live.seed,{
         entrants:JSON.parse(r.entrants),duration:live.duration,title:def.title,
-        activations:[...uses.map(use=>({actor:use.actor,time:use.time})),{actor:state.actor,time}],
+        activations:[...uses.map(use=>({actor:use.actor,time:use.time})),{actor:state.actor,time}],specials:Boolean(this.powerRules(r.id)),
       });
       next.id=r.id;
       requireThat(next.events.some(event=>event.actor===state.actor&&event.charge===charge&&event.time>=time-1e-8),"Your horse has reached the finish. Save your ability for the next race.",409);
+      if(state.cost)this.credit(id,-state.cost,`Signature power · ${SPECIAL_POWERS[state.actor].name}`,r.id,`power:${r.id}:${id}`);
       this.run("INSERT INTO race_power_uses VALUES(?,?,?,?,?,?,?)",requestId,r.id,id,state.actor,time,charge,this.clock());
       this.run("UPDATE live_races SET revision=revision+1 WHERE race_id=?",r.id);
       this.run("UPDATE races SET definition=?,ends=? WHERE id=?",JSON.stringify(next),r.starts+raceFinishedAt(next)*1000,r.id);
@@ -620,6 +632,7 @@ export class Game {
             definition: r.phase === "betting" ? null : publicDefinition,
             revision:live?.revision??0,
             power:this.powerStatus(id,r,definition,live),
+            powerSpent:this.powerSpent(id,r.id),
             results: r.results ? JSON.parse(r.results) : null,
             bets: tickets,
             bet: tickets[0] ? { horse: tickets[0].horse, stake: tickets[0].stake, payout: tickets[0].payout } : null,
@@ -674,6 +687,7 @@ export class Game {
           status: first.status,
         } : null,
         netCoins: r.net_coins,
+        powerSpent:this.powerSpent(id,r.id),
       }];
     });
   }

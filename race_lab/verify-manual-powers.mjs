@@ -1,3 +1,4 @@
+// Legacy v7 compatibility fixture; current paid specials are covered by the special-powers checks.
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -8,7 +9,7 @@ import {Game} from './server/game.js';
 import {createServer} from './server/http.js';
 import {sampleRace} from './race-core.js';
 const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-manual-')),out='review/deployment/manual-local';await mkdir(out,{recursive:true});
-let offset=0;const clock=()=>Date.now()+offset;let game=new Game(path.join(dir,'game.sqlite'),{clock,bettingMs:30000});
+let offset=0;const clock=()=>Date.now()+offset;let game=new Game(path.join(dir,'game.sqlite'),{specials:false,clock,bettingMs:30000});
 // The reserve fixture stays in this disposable local database.
 const alice=game.register('ManualAlice','temporary-local-fixture').user,bobby=game.register('ManualBobby','temporary-local-fixture').user;
 game.horse(bobby.id,'gordon');game.run('INSERT INTO player_upgrades VALUES(?,?,?)',bobby.id,'powerReserve',5);

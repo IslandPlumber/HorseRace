@@ -9,7 +9,7 @@ import {MultiplayerUI} from './multiplayer.js';
 import {gaitClock} from './gait.js';
 import {parkSky} from './park-scenery.js';
 import {PowerView} from './power-view.js';
-import {powerStatus,hitReaction} from './powers.js';
+import {powerStatus,hitReaction,powerForRace} from './powers.js';
 let multiplayer=null;
 let needsRender=true;
 
@@ -444,7 +444,8 @@ function displayFrame(snapCamera = false) {
   raceAudio.sync(race,time,playing,speed,lastShot,audioView,sample);
   $('elapsed').textContent = time.toFixed(1);
   $('timeline').value = time;
-  const text = sample.events.map((event) => event.text || '').filter(Boolean).join(' · ');
+  const latestPower=sample.events.at(-1);
+  const text = race.simulation?.specials ? (latestPower?powerForRace(race,latestPower.actor)?.name??latestPower.text:'') : sample.events.map((event) => event.text || '').filter(Boolean).join(' · ');
   $('caption').textContent = text;
   $('caption').hidden = !text;
   renderStandings(sample);

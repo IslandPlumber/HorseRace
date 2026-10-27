@@ -1,3 +1,4 @@
+// Legacy v7 compatibility fixture; current paid specials are covered by the special-powers checks.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,rmSync} from 'node:fs';
@@ -11,7 +12,7 @@ import {finishTime} from '../gait.js';
 const field=upgrades=>ACTOR_IDS.map(horse=>({horse,...(horse==='elon'?{upgrades}:{})}));
 const run=(seed,upgrades={},powers=true)=>simulateRace(seed,{entrants:field(upgrades),powers});
 const finish=race=>finishTime(race,race.cast.find(r=>r.id==='elon'));
-function fixture(t){const folder=mkdtempSync(path.join(os.tmpdir(),'horserace-workshop-'));let now=100000;const file=path.join(folder,'game.sqlite'),clock=()=>now,g=new Game(file,{clock,bettingMs:1000,duration:10});t.after(()=>{g.close();rmSync(folder,{recursive:true,force:true});});return {g,file,clock,advance:n=>now+=n};}
+function fixture(t){const folder=mkdtempSync(path.join(os.tmpdir(),'horserace-workshop-'));let now=100000;const file=path.join(folder,'game.sqlite'),clock=()=>now,g=new Game(file,{specials:false,clock,bettingMs:1000,duration:10});t.after(()=>{g.close();rmSync(folder,{recursive:true,force:true});});return {g,file,clock,advance:n=>now+=n};}
 
 test('catalogue has 20 real paths, bounded prices and repeatable diminishing mastery',()=>{
  assert.equal(Object.keys(UPGRADES).length,20);assert.equal(Object.values(UPGRADES).filter(u=>u.max===null).length,1);

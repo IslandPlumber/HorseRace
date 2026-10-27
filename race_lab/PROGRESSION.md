@@ -26,7 +26,7 @@ Cast-Iron Cookware or Industrial Paperwork, but the purchased level is shared.
 | Power | Power punch | 2% stronger boost, slow, jolt and friendly assist | 10 |
 | Power | Make it last | 2.5% longer boost and target effect | 10 |
 | Power | Delivery service | 1m more area range, quicker projectile | 10 |
-| Power | One more for the road | 4% longer self boost; level 5 unlocks a reserve cast | 5 |
+| Power | Power budget | 4% longer self boost; 5 fewer coins per activation | 5 |
 | Power | Keep your cool | 0.4% extra pace, 8% less rhythm loss, 3% less corner loss during own boost | 10 |
 | Stable | Club purse bonus | 4% more coins for your own finish | 10 |
 | Stable | Training co-op | 1.5% discount on other workshop paths | 10 |
@@ -39,19 +39,16 @@ speeds acceleration through the attack and briefly afterward. It shortens
 hostile effects only, never a friendly mitten boost. Per-target end times persist
 in the race so recovery visuals match each defender's actual resistance.
 
-Players choose when to use each move in live club races. Reserve level 5 gives
-a second player-controlled charge at 65% strength, after the first move's recovery
-window. Each cast has a unique saved event ID and the same target rules.
-A leader never attacks itself, and a finished winner is not replaced by second
-place. CPU riders keep zero workshop levels and one move. A reserve cast can
-fail to find a valid target, just like the original move.
+Players choose when to use their single special in new club races. Power budget
+retains all existing reserve ranks, extends the boost by 4% per level and reduces
+the 75-coin fee by 5 per level (50 coins at level 5). No rank grants an extra use.
+Old v7 rounds keep their free reserve charge. A failed target search still gives
+the owner's self boost and costs the displayed fee. A leader never attacks
+itself, and a finished winner is not replaced by second place.
 
-Power strength still respects effect caps. The combined boost cap rises from
-28% to at most 38% with power training; slowing remains capped at 60%, heavy
-slowdowns take the strongest active value, and heavy jolts have a ceiling and
-shared cooldown. Focus, saddle and blinkers combine multiplicatively. Fully
-trained defenders still take an effect; no upgrade grants immunity. More
-training gives an advantage rather than a guaranteed result.
+New special boosts cap at 85%, slowing at 75%, heavy jolts at 88%, with shared
+jolt protection. Focus, saddle and blinkers combine multiplicatively. Training
+still matters, but a well-timed expensive special can swing a race.
 
 ## Prices, coins and long-term progression
 
@@ -81,8 +78,8 @@ accounts begin with zero workshop levels; their old purchases are preserved.
 Entries freeze at betting open. All buying stays locked for active entrants
 until settlement; selecting a different tab cannot bypass the server's lock.
 
-The `skills-v7-live` simulation saves the private seed and accepted activation log,
-upgraded movement, per-target recovery windows and both casts, with no reroll
+The `skills-v8-specials` simulation saves the private seed and accepted activation log,
+upgraded movement, per-target recovery windows and the single paid cast, with no reroll
 after restart. Later casts change future movement without rewriting the past.
 Older definitions keep
 their original movement and outcome. Deploy with `progression.js` alongside the

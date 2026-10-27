@@ -10,6 +10,8 @@ export class PowerView {
     this.groups = new Map();
     this.rings = new Map();
     this.reactions = new Map();
+    this.spectacles = new Map();
+    this.dummy = new THREE.Object3D();
     this.feedSignature = '';
     for (const [id, p] of Object.entries(POWERS)) {
       const group = new THREE.Group();
@@ -67,13 +69,19 @@ export class PowerView {
       const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
       const label=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthWrite:false}));label.scale.set(3.6,1.1,1);reaction.add(label);
       reaction.visible=false;this.root.add(reaction);this.reactions.set(id,{group:reaction,stars,label,canvas,texture,lastLabel:''});
+      const flair=new THREE.Group();flair.visible=false;this.root.add(flair);
+      const wave=new THREE.Mesh(new THREE.RingGeometry(.8,1.05,40),new THREE.MeshBasicMaterial({color:p.color,transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));wave.rotation.x=-Math.PI/2;flair.add(wave);
+      const trail=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.28,0),new THREE.MeshBasicMaterial({color:p.color,transparent:true,opacity:.85,depthWrite:false}),24);
+      trail.instanceMatrix.setUsage(THREE.DynamicDrawUsage);trail.frustumCulled=false;flair.add(trail);
+      this.spectacles.set(id,{group:flair,wave,trail});
     }
   }
   update(race, sample, time) {
     const events=powerEvents(race), byId=new Map(sample.runners.map(r=>[r.id,r]));
     const impact=events.filter(e=>e.impact&&e.targets.some(id=>!byId.get(id)?.finished)&&time>=e.hitTime&&time<e.hitTime+1.2).at(-1);
+    const launch=events.filter(e=>e.spectacle&&time>=e.time&&time<e.time+1.8).at(-1),notice=impact??launch;
     const banner=document.getElementById('power-impact');
-    if(banner){banner.hidden=!impact;const text=impact?`${impact.actor==='gordon'?'BONK!':'FILIBUSTERED!'} ${impact.targets.join(', ').toUpperCase()} · Regaining stride`:'';if(banner.textContent!==text)banner.textContent=text;}
+    if(banner){banner.hidden=!notice;const text=impact?`${impact.actor==='gordon'?'BONK!':impact.actor==='trump'?'HAT TRICK!':'FILIBUSTERED!'} ${impact.targets.join(', ').toUpperCase()} · Regaining stride`:launch?`${POWERS[launch.actor].name.toUpperCase()}!`:'';if(banner.textContent!==text)banner.textContent=text;banner.dataset.kind=impact?'impact':'launch';if(notice)banner.style.borderColor=POWERS[notice.actor].color;}
     for(const [id,{group,props}] of this.groups) {
       const event=events.find(e=>e.actor===id && time>=e.time && time<e.time+e.duration);
       group.visible=Boolean(event);
@@ -85,7 +93,7 @@ export class PowerView {
         if(!prop.visible)return;
         const u=Math.min(1,elapsed/Math.max(.001,event.hitTime-event.time));
         if(p.slow&&target) {
-          prop.position.set(source.x+(target.x-source.x)*u,3+Math.sin(u*Math.PI)*3,target.z+(target.z-source.z)*u);
+          prop.position.set(source.x+(target.x-source.x)*u,3+Math.sin(u*Math.PI)*(event.spectacle?8:3),source.z+(target.z-source.z)*u);
           prop.rotation.set(.3,elapsed*8+index,Math.sin(elapsed*6)*.3);
           if(u===1)prop.position.y=3.7+Math.sin(elapsed*8+index)*.4;
         } else if(id==='bernie'&&target) {
@@ -96,8 +104,27 @@ export class PowerView {
           prop.position.set(source.x+Math.cos(source.heading)*ahead, id==='elon'?2.4:4.6,source.z+Math.sin(source.heading)*ahead);
           prop.rotation.set(0,-source.heading,id==='biden'?Math.sin(elapsed*6)*.15:0);
         }
-        prop.scale.setScalar(1+Math.sin(elapsed*12)*.06);
+        prop.scale.setScalar((event.spectacle?2.4:1)*(1+Math.sin(elapsed*12)*.10));
       });
+    }
+    for(const [id,fx] of this.spectacles){
+      const event=events.find(e=>e.spectacle&&e.actor===id&&time>=e.time&&time<Math.max(e.time+e.duration,e.hitTime+1.5));
+      fx.group.visible=Boolean(event);if(!event)continue;
+      const source=byId.get(id),target=byId.get(event.targets[0]),elapsed=time-event.time,hit=target&&time>=event.hitTime;
+      const center=hit&&!event.assist?target:source,age=hit?time-event.hitTime:elapsed;
+      fx.wave.position.set(center.x,.18,center.z);fx.wave.scale.setScalar(2+Math.min(age,1.3)*7);fx.wave.material.opacity=Math.max(0,.85-age*.65);
+      for(let n=0;n<24;n++){
+        const phase=(elapsed*1.4+n/24)%1,angle=n*2.399+elapsed*1.8;
+        if(event.targets.length&&!event.assist){
+          const victim=byId.get(event.targets[n%event.targets.length]);
+          this.dummy.position.set(victim.x+Math.cos(angle)*(1+phase*4),1+Math.sin(phase*Math.PI)*5,victim.z+Math.sin(angle)*(1+phase*4));
+        }else{
+          const behind=1+phase*15,spread=Math.sin(n*7.13)*phase*2.5;
+          this.dummy.position.set(source.x-Math.cos(source.heading)*behind+Math.sin(source.heading)*spread,.4+Math.sin(phase*Math.PI)*3,source.z-Math.sin(source.heading)*behind-Math.cos(source.heading)*spread);
+        }
+        this.dummy.rotation.set(elapsed*3+n,angle,elapsed*2);this.dummy.scale.setScalar(.6+(1-phase)*1.8);this.dummy.updateMatrix();fx.trail.setMatrixAt(n,this.dummy.matrix);
+      }
+      fx.trail.instanceMatrix.needsUpdate=true;
     }
     for(const runner of sample.runners) {
       const ring=this.rings.get(runner.id),active=activePowerEffects(race,runner.id,time);
@@ -106,9 +133,10 @@ export class PowerView {
       const reaction=this.reactions.get(runner.id),hit=active.find(e=>e.kind==='slow'&&e.event.impact);
       reaction.group.visible=Boolean(hit)&&!runner.finished;
       if(reaction.group.visible){
-        const elapsed=time-hit.event.hitTime,text=hit.event.actor==='gordon'?'BONK!':'BLAH BLAH!';
+        const elapsed=time-hit.event.hitTime,text=hit.event.actor==='gordon'?'BONK!':hit.event.actor==='trump'?'CAPPED!':'BLAH BLAH!';
         if(text!==reaction.lastLabel){const ctx=reaction.canvas.getContext('2d');ctx.clearRect(0,0,256,80);ctx.fillStyle='#24251cec';ctx.fillRect(0,0,256,80);ctx.fillStyle='#ffe17d';ctx.font='900 36px system-ui';ctx.textAlign='center';ctx.fillText(text,128,53);reaction.texture.needsUpdate=true;reaction.lastLabel=text;}
         reaction.group.position.set(runner.x,5.1,runner.z);
+        reaction.group.scale.setScalar(hit.event.spectacle?1.6:1);
         reaction.label.position.set(0,1.7+Math.sin(elapsed*7)*.1,0);
         reaction.stars.forEach((star,n)=>{const angle=elapsed*5+n*Math.PI*2/5;star.position.set(Math.cos(angle)*1.25,Math.sin(angle*2)*.25+.4,Math.sin(angle)*1.25);star.rotation.set(.25,angle,elapsed*3);});
       }
@@ -122,9 +150,9 @@ export class PowerView {
     this.feedSignature=signature;
     feed.replaceChildren();
     const heading=document.createElement('h3');heading.textContent='Trackside antics';feed.append(heading);
-    if(!past.length){const note=document.createElement('p');note.textContent='One automatic signature move per rider. Watch for the sparks.';feed.append(note);}
+    if(!past.length){const note=document.createElement('p');note.textContent=race.simulation?.specials?'One big move per rider. Choose your moment — activating it spends game coins.':'Player powers wait for your button or F. CPU riders choose their moment.';feed.append(note);}
     for(const event of past){const row=document.createElement('p'),tag=document.createElement('strong');tag.textContent=`${event.time.toFixed(1)}s · ${POWERS[event.actor].name}`;row.append(tag,document.createTextNode(event.detail ?? event.text.slice(event.text.indexOf('! ')+2)));feed.append(row);}
   }
-  get diagnostics(){return {active:[...this.groups].filter(([,g])=>g.group.visible).map(([id])=>id),victims:[...this.reactions].filter(([,r])=>r.group.visible).map(([id])=>id),props:21};}
-  dispose(){this.root.traverse(o=>{o.geometry?.dispose();o.material?.map?.dispose();o.material?.dispose();});this.root.removeFromParent();}
+  get diagnostics(){return {active:[...this.groups].filter(([,g])=>g.group.visible).map(([id])=>id),victims:[...this.reactions].filter(([,r])=>r.group.visible).map(([id])=>id),spectacles:[...this.spectacles].filter(([,r])=>r.group.visible).map(([id])=>id),maxPropScale:Math.max(0,...[...this.groups.values()].filter(g=>g.group.visible).flatMap(g=>g.props.filter(p=>p.visible).map(p=>p.scale.x))),props:21};}
+  dispose(){this.root.traverse(o=>{if(o.isInstancedMesh)o.dispose();o.geometry?.dispose();o.material?.map?.dispose();o.material?.dispose();});this.root.removeFromParent();}
 }

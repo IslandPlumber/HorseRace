@@ -150,9 +150,9 @@ export function createServer(
                 requireMembership();
                 game.leave(id);
               } else if (action === "start") game.start(id, code);
-              else if(action==="power")game.power(id,code,body.raceId,body.requestId);
+              else if(action==="power")game.power(id,code,body.raceId,body.requestId,body.policyVersion);
               else game.bet(id, code, body.horse, body.stake, body.kind);
-              result = action==="power"?{code,room:game.room(id,code)}:{code};
+              result = action==="power"?{code,room:game.room(id,code),user:game.profile(id)}:{code};
             } else throw new GameError("Not found.", 404);
             function requireMembership() {
               if (game.membership(id) !== code)

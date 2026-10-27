@@ -1,3 +1,4 @@
+// Legacy v7 compatibility fixture; current paid specials are covered by the special-powers checks.
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -8,7 +9,7 @@ import {Game,RULES} from './server/game.js';
 import {createServer} from './server/http.js';
 import {UPGRADES,upgradeCost,finishPrize} from './progression.js';
 const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-workshop-')),out='review/deployment/workshop-local';await mkdir(out,{recursive:true});
-let offset=0;const clock=()=>Date.now()+offset,game=new Game(path.join(dir,'game.sqlite'),{clock,bettingMs:30000});
+let offset=0;const clock=()=>Date.now()+offset,game=new Game(path.join(dir,'game.sqlite'),{specials:false,clock,bettingMs:30000});
 const veteran=game.register('WorkshopVeteran','temporary-local-fixture').user;game.credit(veteran.id,75000,'Local verification fixture',null);
 const server=createServer(game,{site:path.resolve('site')});await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const errors=[],outside=[],pages=[],report={checks:[]};

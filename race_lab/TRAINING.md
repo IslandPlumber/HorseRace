@@ -1,6 +1,6 @@
 # Training and shared race simulation
 
-Club races use the server-owned `skills-v7-live` model in `server/race-simulation.js`.
+Club races use the server-owned `skills-v8-specials` model in `server/race-simulation.js`.
 The server simulates distance, acceleration, pace, cornering and fatigue, then
 derives the finishing order from actual finish crossings. Players activate powers
 during the race; accepted actions change subsequent movement. Every browser plays
@@ -21,7 +21,7 @@ Practice examples retain their scripted scenarios.
   by 6%, up to 30% at maximum. Rhythm losses slow the target temporarily; horses
   decelerate and recover rather than teleporting or stopping abruptly.
 
-Every player chooses when to use their signature power; CPUs use theirs
+Every player chooses when to use their one paid signature power per race; CPUs use theirs
 automatically. See [POWERS.md](POWERS.md).
 The Upgrades tab adds 20 specialist horse, tack, power and stable paths plus repeatable mastery. See [PROGRESSION.md](PROGRESSION.md). Original training mechanics and prices are unchanged.
 

@@ -1,3 +1,4 @@
+// Legacy v7 compatibility fixture; current paid specials are covered by the special-powers checks.
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -13,7 +14,7 @@ const out='review/deployment/training/browser';await mkdir(out,{recursive:true})
 // Browser rendering can take several real seconds on a busy machine. Advance
 // only this disposable game's clock so screenshots cannot race settlement.
 let now=Date.now();
-const game=new Game(path.join(dir,'game.sqlite'),{clock:()=>now,bettingMs:20000});
+const game=new Game(path.join(dir,'game.sqlite'),{specials:false,clock:()=>now,bettingMs:20000});
 const server=createServer(game,{site:path.resolve('site')});await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const outside=[];
 const proxy=http.createServer((req,res)=>{

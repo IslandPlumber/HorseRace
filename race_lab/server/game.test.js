@@ -1,3 +1,4 @@
+// Legacy v7 compatibility fixture; current paid specials are covered by the special-powers checks.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -11,7 +12,7 @@ function fixture(t) {
   const dir = mkdtempSync(path.join(tmpdir(), "horserace-test-"));
   let now = 100000;
   const db = path.join(dir, "game.sqlite"),
-    game = new Game(db, { clock: () => now, bettingMs: 1000, duration: 10 });
+    game = new Game(db, { specials:false, clock: () => now, bettingMs: 1000, duration: 10 });
   t.after(() => {
     try {
       game.close();

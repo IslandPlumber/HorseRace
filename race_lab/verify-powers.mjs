@@ -1,3 +1,4 @@
+// Legacy v7 compatibility fixture; current paid specials are covered by the special-powers checks.
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -12,7 +13,7 @@ import {POWERS,powerEvents} from './powers.js';
 import {BET_TYPES,ticketReturn} from './betting.js';
 const dir=await mkdtemp(path.join(os.tmpdir(),'horserace-powers-')),out='review/deployment/powers-local';
 await mkdir(out,{recursive:true});let now=Date.now();
-const game=new Game(path.join(dir,'game.sqlite'),{clock:()=>now,bettingMs:30000});
+const game=new Game(path.join(dir,'game.sqlite'),{specials:false,clock:()=>now,bettingMs:30000});
 function advance(milliseconds){assert.ok(milliseconds>=0,'fixture time advances monotonically');now+=milliseconds;game.tick();}
 function advanceTo(code,seconds){const target=game.latest(code).starts+seconds*1000;advance(Math.max(0,target-now));}
 const server=createServer(game,{site:path.resolve('site')});await new Promise(r=>server.listen(0,'127.0.0.1',r));

@@ -31,7 +31,7 @@ function animate(){if(mp.managed){const frame=mp.frame();time=frame.ready?frame.
 window.raceLab={get ready(){return true;},get race(){return race;},get time(){return time;},get renderDiagnostics(){return {liveUpdates:updates};},get multiplayer(){return {frame:mp.frame(),available:mp.room?.race?.definition?.availableTime,timing:mp.playbackDiagnostics??null};}};
 `);
 const harnessHTML=Buffer.from((await readFile('index.html','utf8')).replace(/<script type="importmap">[\s\S]*?<\/script>/,'').replace('<script type="module" src="./app.js"></script>','<script type="module" src="./smooth-harness.js"></script>'));
-const game=new Game(path.join(dir,'game.sqlite'),{bettingMs:750});
+const game=new Game(path.join(dir,'game.sqlite'),{bettingMs:750,specials:label!=='before'});
 const a=game.register('SmoothAlice','temporary-local-fixture'),b=game.register('SmoothBobby','temporary-local-fixture');
 game.horse(b.user.id,'gordon');
 const code=game.create(a.user.id);game.join(b.user.id,code);
@@ -112,9 +112,9 @@ async function record(name,actor){
   await new Promise(resolve=>setTimeout(resolve,seconds*500));
   if(actor==='elon'){
     await page.locator('#race-use-power').click();
-    await page.locator('#race-ability-status').filter({hasText:'All charges used'}).waitFor();
+    await page.locator('#race-ability-status').filter({hasText:/All charges used|Special used this race/}).waitFor();
   }else if(actor){
-    const response=await fetch(`http://127.0.0.1:${server.address().port}/api/rooms/${code}/power`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${b.token}`},body:JSON.stringify({raceId:game.latest(code).id,requestId:`smoothness-${label}-bobby`})});
+    const response=await fetch(`http://127.0.0.1:${server.address().port}/api/rooms/${code}/power`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${b.token}`},body:JSON.stringify({raceId:game.latest(code).id,requestId:`smoothness-${label}-bobby`,policyVersion:1})});
     assert.equal(response.status,200);
   }
   await new Promise(resolve=>setTimeout(resolve,seconds*500));

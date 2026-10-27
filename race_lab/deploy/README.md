@@ -114,7 +114,10 @@ Club races simulate the frozen entry skills through actual movement:
 Speed controls acceleration/cruising pace, Stamina reduces late fatigue, and
 Focus helps starts, corners and rhythm. Finish crossings determine the outcome.
 New races persist a private seed and an append-only log of player power uses in
-the additive `live_races` and `race_power_uses` tables. Players choose when to use
+the additive `live_races` and `race_power_uses` tables. New single-use paid rounds
+also snapshot their policy and per-rider costs in `race_power_rules`. The fee
+debit and accepted action commit in one transaction. Old rounds without that row
+keep their v7 behavior. Preserve this table and ledger fees during recovery. Players choose when to use
 their charge after the gates open; CPUs act automatically. Accepted actions change
 future movement and can change the winner. Public live definitions contain only
 confirmed motion and events, with no future outcome or secret seed. Old race

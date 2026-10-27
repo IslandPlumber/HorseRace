@@ -1,12 +1,13 @@
 import { ACTOR_IDS, validateRace } from "../race-core.js";
 import { makeCircuit, trackPoint } from "../track.js";
-import { POWERS } from "../powers.js";
+import { POWERS, SPECIAL_POWERS } from "../powers.js";
 import {normalizeUpgrades,masteryPace} from '../progression.js';
 
 // A versioned, server-owned simulation. All clients receive the same persisted
 // distance timeline; finish order is measured from its crossings, never drawn.
 export const SIMULATION_VERSION = "skills-v6-workshop";
 export const LIVE_SIMULATION_VERSION = "skills-v7-live";
+export const SPECIAL_SIMULATION_VERSION = "skills-v8-specials";
 export const LIVE_POWER_COOLDOWN = 4;
 const STEP = 0.125;
 const WINDOW = 68;
@@ -87,8 +88,9 @@ function makeHorse(seed, entrant, lane, track) {
     reserveAt:.82+powerRandom()*.08,uses:0,charges:level('powerReserve')>=5?2:1,effects: [] };
 }
 
-function runField(seed, entrants, lanes, track, powers, manual = null) {
+function runField(seed, entrants, lanes, track, powers, manual = null, specials = false) {
   const horses = entrants.map((e, i) => makeHorse(seed, e, lanes[i], track));
+  if(specials)for(const horse of horses)horse.charges=1;
   const events = [];
   for (let time = 0; time < 120 && horses.some(h => !h.finish); time += STEP) {
     const frameDistances=new Map(horses.map(h=>[h.id,h.distance]));
@@ -115,8 +117,9 @@ function runField(seed, entrants, lanes, track, powers, manual = null) {
         if (incident.start !== undefined && localTime < incident.end) rhythmLoss = true;
       }
       const active = horse.effects.filter(e => localTime >= e.start && localTime < e.end);
-      const boost = Math.min(.28+level('powerPotency')*.01, active.reduce((n,e) => n + e.boost, 0));
+      const boost = Math.min(specials ? .85 : .28+level('powerPotency')*.01, active.reduce((n,e) => n + e.boost, 0));
       const ownBoost=active.some(e=>e.own);
+      if(specials&&ownBoost)acceleration*=2.5;
       if(ownBoost)turnLoss*=1-level('powerDiscipline')*.03;
       if(horse.effects.some(e=>e.slow&&localTime>=e.start&&localTime<e.end+1.5))acceleration*=1+level('recovery')*.04;
       // A comic hit is a real loss of velocity, not only a lower future target.
@@ -129,9 +132,9 @@ function runField(seed, entrants, lanes, track, powers, manual = null) {
           boundary=true;
         }
       }
-      const light = Math.min(.24, active.filter(e=>!e.shock).reduce((n,e) => n+(e.slow??0),0));
+      const light = Math.min(specials ? .60 : .24, active.filter(e=>!e.shock).reduce((n,e) => n+(e.slow??0),0));
       const heavy = Math.max(0,...active.filter(e=>e.shock).map(e=>e.slow));
-      const slow = Math.min(.60,Math.max(light,heavy));
+      const slow = Math.min(specials ? .75 : .60,Math.max(light,heavy));
       const drafting=level('drafting')&&horses.some(other=>other!==horse&&!other.finish&&Math.abs(other.lane-horse.lane)<=1&&frameDistances.get(other.id)-frameDistances.get(horse.id)>1&&frameDistances.get(other.id)-frameDistances.get(horse.id)<10);
       const rhythm= rhythmLoss?1-.28*(ownBoost?1-level('powerDiscipline')*.08:1):1;
       const kick=1+level('finishing')*.006*clamp((fraction-.72)/.20,0,1);
@@ -163,10 +166,10 @@ function runField(seed, entrants, lanes, track, powers, manual = null) {
       (manual?.has(h.id) ? (manual.get(h.id)[h.uses] ?? Infinity) <= time + 1e-8 :
         sharedDistance(h) >= track.length * h.powerAt)).sort((a,b) => a.id.localeCompare(b.id)) : [];
     for (const h of firing) {
-      const base=POWERS[h.id],level=kind=>h.upgrades[kind]??0;
+      const base=(specials?SPECIAL_POWERS:POWERS)[h.id],level=kind=>h.upgrades[kind]??0;
       const strength=(1+level('powerPotency')*.02)*(h.uses ? .65 : 1),duration=1+level('powerDuration')*.025;
       const p={...base,boost:base.boost*strength,slow:(base.slow??0)*strength,
-        shock:Math.min(.68,(base.shock??0)*strength),assist:(base.assist??0)*strength,
+        shock:Math.min(specials ? .88 : .68,(base.shock??0)*strength),assist:(base.assist??0)*strength,
         duration:base.duration*duration*(1+level('powerReserve')*.04),hitDuration:(base.hitDuration??0)*duration,
         radius:(base.radius??0)+level('powerReach')};
       const location = runner => trackPoint(track, sharedDistance(runner),
@@ -193,7 +196,7 @@ function runField(seed, entrants, lanes, track, powers, manual = null) {
           .sort((a,b) => a.distance-b.distance || a.horse.id.localeCompare(b.horse.id))
           .slice(0, p.targets ?? 0).map(other => other.horse);
       }
-      const hitTime = time + .45*(1-level('powerReach')*.03);
+      const hitTime = time + (specials ? .75 : .45)*(1-level('powerReach')*.03);
       h.uses++;h.powerAt=h.reserveAt;
       h.effects.push({start: time, end: time + p.duration, boost: p.boost,own:true});
       const targetEnds={};
@@ -207,7 +210,7 @@ function runField(seed, entrants, lanes, track, powers, manual = null) {
         targets.map(t=>t.id).join(', ') + '.' : p.targeting === 'leader' ?
         'No rival leader to hit. Keeping the speed boost!' : p.slow ? 'The pack escapes the distraction.' : 'A burst of horsepower!';
       events.push({id: `power-${h.id}${h.uses>1?'-'+h.uses:''}`, type: 'caption', power: p.effect, actor: h.id,charge:h.uses,charges:h.charges,
-        time, duration: p.duration, hitTime, hitDuration: p.hitDuration ?? 0,
+        time, duration: p.duration, hitTime, hitDuration: p.hitDuration ?? 0,...(specials?{spectacle:true}:{}),
         targets: targets.map(other => other.id), assist: Boolean(p.assist),
         targeting: p.targeting ?? (p.assist ? 'last' : p.slow ? 'nearby' : 'self'), impact: p.shock ?? 0, targetEnds, detail,
         text: `${p.name}${/[!?]$/.test(p.name) ? '' : '!'} ${detail}`});
@@ -282,7 +285,7 @@ export function simulateRace(seed, { entrants, duration = 64, title = "Club race
  * The complete projection is private server state. Only publicLiveRace may be
  * sent to players while a race is underway.
  */
-export function simulateLiveRace(seed, { entrants, duration = 64, title = "Club race", activations = [] } = {}) {
+export function simulateLiveRace(seed, { entrants, duration = 64, title = "Club race", activations = [], specials = false } = {}) {
   if (!(typeof seed === "string" || typeof seed === "number" && Number.isFinite(seed)))
     throw Error("Race seed must be a string or finite number.");
   if (!Array.isArray(entrants) || !entrants.length || entrants.length > ACTOR_IDS.length ||
@@ -312,7 +315,7 @@ export function simulateLiveRace(seed, { entrants, duration = 64, title = "Club 
       throw Error("Invalid live activation.");
     const times = manual.get(input.actor);
     const entrant = entrants.find(e => e.horse === input.actor);
-    const charges = (normalizeUpgrades(entrant.upgrades).powerReserve ?? 0) >= 5 ? 2 : 1;
+    const charges = specials?1:(normalizeUpgrades(entrant.upgrades).powerReserve ?? 0) >= 5 ? 2 : 1;
     if (times.length >= charges || times.length && input.time - (startDelay + times.at(-1) * scale) < LIVE_POWER_COOLDOWN - 1e-8)
       throw Error("Live activation exceeds charges or cooldown.");
     // API inputs normally come from nextLiveActivationTime. Quantize defensively
@@ -320,7 +323,7 @@ export function simulateLiveRace(seed, { entrants, duration = 64, title = "Club 
     const raw = Math.ceil(((input.time - startDelay) / scale) / STEP - 1e-8) * STEP;
     times.push(raw);
   }
-  const {horses, events} = runField(seed, entrants, lanes, track, true, manual);
+  const {horses, events} = runField(seed, entrants, lanes, track, true, manual, specials);
   const cast = horses.map(h => {
     const finish = startDelay + h.finish * scale;
     if (finish >= end) throw Error("Live race exceeded its fixed horizon.");
@@ -347,7 +350,7 @@ export function simulateLiveRace(seed, { entrants, duration = 64, title = "Club 
   }));
   return validateRace({version: 1, id: `live-${String(seed).slice(0,75)}`, title, seed,
     duration: end, startDelay, track, cast, outcome, events: raceEvents,
-    simulation: {model: LIVE_SIMULATION_VERSION, powers: true, manualPowers: true,
+    simulation: {model: specials?SPECIAL_SIMULATION_VERSION:LIVE_SIMULATION_VERSION, powers: true, manualPowers: true,...(specials?{specials:true}:{}),
       step: STEP, stepSeconds: STEP * scale, scale, settleTail: tail,
       cooldown: LIVE_POWER_COOLDOWN, nominalSpeed: track.length / ((duration - startDelay) * .8)},
   });
@@ -404,7 +407,7 @@ export function publicLiveRace(definition, elapsed, {id = "live-race", revision 
     })),
     // Explicit allowlist: never spread private seed, activation schedule, or
     // any future result metadata into a room response.
-    simulation: {model: definition.simulation.model, powers: true, manualPowers: true,
+    simulation: {model: definition.simulation.model, powers: true, manualPowers: true,...(definition.simulation.specials?{specials:true}:{}),
       step: definition.simulation.step, stepSeconds: step,
       cooldown: definition.simulation.cooldown, nominalSpeed: definition.simulation.nominalSpeed},
   });

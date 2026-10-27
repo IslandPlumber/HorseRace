@@ -28,9 +28,10 @@ export function roundFromRoom(room, user) {
     place: finish?.place ?? null, prize: finish?.prize ?? 0, points: finish?.points ?? 0,
     winner: r.results?.[0]?.horse ?? null,
     bets,
+    powerSpent:r.powerSpent??0,
     bet: r.bet ? { ...r.bet, net: r.bet.payout === null ? null : r.bet.payout - r.bet.stake,
       status: r.bet.payout === null ? "pending" : r.bet.payout > 0 ? "won" : "lost" } : null,
-    netCoins: (finish?.prize ?? 0) + bets.reduce((n, b) => n + (b.payout ?? 0) - b.stake, 0),
+    netCoins: (finish?.prize ?? 0) + bets.reduce((n, b) => n + (b.payout ?? 0) - b.stake, 0)-(r.powerSpent??0),
   };
 }
 export function betSlip(round) {
@@ -70,11 +71,12 @@ export function betSlip(round) {
     metric("Finish prize", settled ? `+${coins(round.prize)} coins` : "Pending"),
   );
   card.append(metrics);
+  if(round.powerSpent)card.append(el('p','slip-power-cost',`Special power used · −${coins(round.powerSpent)} coins`));
   const total = el("div", "slip-total");
-  total.append(el("span", "", settled ? "Round total" : bets.length ? "Stakes paid" : "Race prize pending"), el("strong", "", !settled && !bets.length ? "Pending" : `${signed(round.netCoins)} coins`));
+  total.append(el("span", "", settled ? "Round total" : round.powerSpent ? "Coins spent so far" : bets.length ? "Stakes paid" : "Race prize pending"), el("strong", "", !settled && !bets.length && !round.powerSpent ? "Pending" : `${signed(round.netCoins)} coins`));
   card.append(total);
   const equation = settled
-    ? `${bets.length ? `−${coins(stake)} stakes + ${coins(payout)} bet return + ` : ""}${coins(round.prize)} finish prize = ${signed(round.netCoins)} coins`
+    ? `${bets.length ? `−${coins(stake)} stakes + ${coins(payout)} bet return + ` : ""}${coins(round.prize)} finish prize${round.powerSpent?` − ${coins(round.powerSpent)} power`:''} = ${signed(round.netCoins)} coins`
     : "Bet returns and finish prizes are added when the race ends.";
   card.append(el("p", "slip-equation", equation));
   return card;
