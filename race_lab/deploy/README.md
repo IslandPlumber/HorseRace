@@ -82,14 +82,23 @@ A seven-seat main room overflows into another populated room or a new room.
 Occupied rooms take priority over an empty main room. Existing custom-room choices
 and active entries survive reconnects. POST /api/rooms/main explicitly returns to
 main when space permits. Leaving is respected until the next browser connection.
-A full main room can reclaim memberships idle for over two minutes, after the same
-startup grace; active entrants are never removed. Profiles and saved records stay
+Arrivals and joins can reclaim seats idle for over two minutes, after the same
+startup grace, in main or custom rooms; active entrants are never removed. Profiles and saved records stay
 intact. Include club_rooms in backups; no prior table is rebuilt.
 
 The compact logo is generated from the existing Trump, Elon and Snoop models by
 node render-brand.mjs and saved as assets/branding/horserace.svg. It introduces no
 external artwork or runtime rendering loop. The static server serves SVG as
 image/svg+xml with the existing image policy.
+
+The current-room roster includes explicit online status. A closed browser stops
+sending authenticated requests and becomes offline after the 30-second presence
+timeout; a valid saved login session alone does not mean a player is online.
+New rounds freeze only connected members, filling disconnected riders with CPUs.
+Already-frozen entrants and their bets still finish and settle normally after a
+disconnect. Reclaimed seats remove membership only, retaining accounts, upgrades,
+coins, tickets and results. Another open window polling as the same account keeps
+that player online.
 
 Room discovery remains visible while already in a room. Active clients refresh
 the directory every five seconds and report presence through authenticated game

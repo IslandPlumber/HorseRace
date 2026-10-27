@@ -567,7 +567,7 @@ export class MultiplayerUI {
     $("mp-members").textContent = this.room.members
       .map(
         (m) =>
-          `${m.username}${m.id === this.room.hostId ? " (host)" : ""} — ${HORSES[m.horse]}`,
+          `${m.username}${m.id === this.room.hostId ? " (host)" : ""}${m.online === false ? (m.active ? " (offline · finishing this race)" : " (offline)") : ""} — ${HORSES[m.horse]}`,
       )
       .join(" · ");
     const buildRows=this.room.race?.entrants??this.room.members;

@@ -22,7 +22,7 @@ export class RoomBrowser {
    const card=make('article','room-card'+(own?' room-current':''));card.dataset.roomCode=room.code;
    const heading=make('div','room-card-heading');heading.append(make('strong','',room.main?'Main room':room.code),make('span','room-phase',own?'Your room':room.phase==='racing'?'Race live':room.phase==='betting'?'Betting open':'Ready to race'));card.append(heading);
    card.append(make('p','room-occupancy',`${room.online} online · ${room.players}/${room.capacity} places`));
-   card.append(make('p','room-people',room.members.map(m=>m.username+(m.online?'':' (away)')).join(' · ')));
+   card.append(make('p','room-people',room.members.map(m=>m.username+(m.online?'':' (offline)')).join(' · ')));
    if(!own){
     const available=HORSES.filter(h=>!room.members.some(m=>m.horse===h));
     const label=make('label','field','Join as');const select=make('select');select.setAttribute('aria-label',`Rider for room ${room.code}`);

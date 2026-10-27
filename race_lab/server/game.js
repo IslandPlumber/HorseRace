@@ -282,6 +282,7 @@ export class Game {
     if (this.presence.size > 10000)
       for (const [key, last] of this.presence) if (last < now - 30000) this.presence.delete(key);
   }
+  isOnline(id) { return (this.presence.get(id)??-Infinity)>=this.clock()-30000; }
   onlineCount() {
     return [...this.presence.values()].filter((last) => last >= this.clock() - 30000).length;
   }
@@ -292,7 +293,7 @@ export class Game {
       main??"",
     ).map((room) => {
       const people = this.all("SELECT u.id,u.username,u.horse FROM members m JOIN users u ON u.id=m.user_id WHERE m.code=?", room.code);
-      const members = people.map((p) => ({ username: p.username, horse: p.horse, online: (this.presence.get(p.id) ?? -Infinity) >= this.clock() - 30000 }));
+      const members = people.map((p) => ({ username: p.username, horse: p.horse, online: this.isOnline(p.id) }));
       return { ...room, main: room.code===main, online: members.filter((p) => p.online).length, members,
         phase: this.latest(room.code)?.phase ?? "waiting", capacity: 7 };
     }).sort((a,b) => Number(b.main)-Number(a.main) || b.online-a.online || b.players-a.players).slice(0,30);
@@ -323,6 +324,13 @@ export class Game {
         id,
       );
   }
+  reclaimIdleMembers(code, exceptId) {
+    // Keep reconnect and restart grace; frozen racers and their payouts stay put.
+    if(this.clock()-this.startedAt<120000)return;
+    for(const {user_id:id} of this.all('SELECT user_id FROM members WHERE code=?',code)){
+      if(id!==exceptId&&(this.presence.get(id)??-Infinity)<this.clock()-120000&&!this.active(id))this.leaveInside(id);
+    }
+  }
   leave(id) {
     return this.transaction(() => this.leaveInside(id));
   }
@@ -344,6 +352,7 @@ export class Game {
         404,
       );
       if (this.membership(id) === code) return code;
+      this.reclaimIdleMembers(code,id);
       requireThat(
         this.one("SELECT COUNT(*) AS n FROM members WHERE code=?", code).n < 7,
         "This room is full.",
@@ -390,13 +399,7 @@ export class Game {
         this.run("INSERT INTO club_rooms VALUES('main',?)",main);
       }
       if(this.membership(id)===main)return main;
-      // Old idle memberships must not permanently fill the shared room. Give
-      // reconnecting clients two minutes after startup; never evict a racer.
-      if(this.clock()-this.startedAt>=120000 && this.one('SELECT COUNT(*) AS n FROM members WHERE code=?',main).n>=7){
-        const idle=this.all('SELECT user_id FROM members WHERE code=?',main)
-          .filter(m=>m.user_id!==id&&(this.presence.get(m.user_id)??-Infinity)<this.clock()-120000&&!this.active(m.user_id));
-        for(const m of idle)this.leaveInside(m.user_id);
-      }
+      this.reclaimIdleMembers(main,id);
       if(switchRoom)requireThat(this.one('SELECT COUNT(*) AS n FROM members WHERE code=?',main).n<7,'The main room is full (7/7). Choose another room.');
       const rooms=this.rooms(),primary=rooms.find(r=>r.code===main),open=r=>r.players<7;
       const target=(switchRoom?{code:main}:null)??(primary&&open(primary)&&primary.online>0?primary:null)
@@ -409,6 +412,7 @@ export class Game {
     });
   }
   start(id, code) {
+    this.touch(id); // Starting a round is itself a live player action.
     return this.transaction(() => {
       const room = this.one("SELECT * FROM rooms WHERE code=?", code);
       requireThat(
@@ -425,8 +429,9 @@ export class Game {
         "SELECT u.id,u.username,u.horse,u.speed,u.stamina,u.focus FROM members m JOIN users u ON u.id=m.user_id WHERE m.code=?",
         code,
       );
+      const onlinePeople=people.filter(u=>this.isOnline(u.id));
       const entrants = ACTOR_IDS.map((horse) => {
-        const u = people.find((p) => p.horse === horse);
+        const u = onlinePeople.find((p) => p.horse === horse);
         return {
           horse,
           userId: u?.id ?? null,
@@ -658,7 +663,7 @@ export class Game {
       code,
       main: code===this.mainRoomCode(),
       hostId: room.host_id,
-      members,
+      members:members.map(m=>({...m,online:this.isOnline(m.id),active:Boolean(r&&r.phase!=="results"&&JSON.parse(r.entrants).some(e=>e.userId===m.id))})),
       race: r
         ? {
             id: r.id,
